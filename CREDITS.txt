@@ -1,0 +1,39 @@
+NOTEBOOK AWAKENING — Credits & Asset Disclosure
+She Built This: Game Jam (powered by Sentry), June 2026
+Theme: Awakening
+
+------------------------------------------------------------
+MADE DURING THE JAM
+------------------------------------------------------------
+Game design, code, and all visuals
+  - Shiara Arauzo
+
+Art / Visuals
+  - All graphics are drawn procedurally in-engine (GDScript _draw):
+    the stick figure, pencil, eraser, ink strokes, notebook paper,
+    ruled lines, and doodle decorations. These are placeholder art
+    created for this jam. (If replaced with hand-drawn art later,
+    that art will be created during the jam window and credited here.)
+  - NO generative-AI art was used (per jam rules).
+
+Audio
+  - (To be added.) Any music or sound effects will come from
+    free / Creative Commons libraries and will be credited here with
+    title, author, source URL, and license. Planned sources:
+    Freesound (CC0), OpenGameArt, incompetech / Kevin MacLeod.
+  - NO generative-AI audio will be used (per jam rules).
+
+------------------------------------------------------------
+TOOLS & THIRD-PARTY SOFTWARE (not game assets)
+------------------------------------------------------------
+Engine
+  - Godot Engine 4.5.1 (MIT License) — https://godotengine.org
+
+Error monitoring
+  - Sentry JavaScript SDK, loaded from CDN in the web shell
+    (build/web/index.html). https://sentry.io
+
+Programming assistance
+  - AI coding assistance (Claude Code) was used for programming help,
+    which is explicitly permitted by the jam rules. No AI was used to
+    generate art, music, or written game assets.

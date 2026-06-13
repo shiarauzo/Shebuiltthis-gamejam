@@ -10,3 +10,9 @@
 
 # macOS
 .DS_Store
+
+# Generated test log
+tests/last_run.log
+
+# Local agent/session files
+.claude/
