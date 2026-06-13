@@ -33,6 +33,24 @@ func setup(a: Vector2, b: Vector2) -> void:
 	cs.rotation = (b - a).angle() - PI / 2.0  # capsule long axis is vertical by default
 	add_child(cs)
 
+	# Ink-splatter burst where the stroke lands.
+	var burst := CPUParticles2D.new()
+	burst.position = mid
+	burst.one_shot = true
+	burst.explosiveness = 0.9
+	burst.amount = 10
+	burst.lifetime = 0.5
+	burst.direction = Vector2(1, 0)
+	burst.spread = 180.0
+	burst.initial_velocity_min = 40.0
+	burst.initial_velocity_max = 130.0
+	burst.gravity = Vector2.ZERO
+	burst.scale_amount_min = 1.0
+	burst.scale_amount_max = 2.5
+	burst.color = Color(0.13, 0.18, 0.55)
+	burst.emitting = true
+	add_child(burst)
+
 func _physics_process(_delta: float) -> void:
 	# Continuous hazard: damages on overlap (not just on entry), so a stroke
 	# drawn on top of a standing player still hurts. take_damage() respects

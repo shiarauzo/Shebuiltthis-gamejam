@@ -22,6 +22,21 @@ func _ready() -> void:
 	add_child(cs)
 	body_entered.connect(_on_body_entered)
 
+	# Trailing eraser-shaving dust.
+	var dust := CPUParticles2D.new()
+	dust.amount = 18
+	dust.lifetime = 0.6
+	dust.spread = 180.0
+	dust.direction = Vector2(0, 1)
+	dust.gravity = Vector2(0, 50)
+	dust.initial_velocity_min = 8.0
+	dust.initial_velocity_max = 45.0
+	dust.scale_amount_min = 1.0
+	dust.scale_amount_max = 2.5
+	dust.color = Color(0.96, 0.86, 0.89, 0.7)
+	dust.emitting = true
+	add_child(dust)
+
 func _process(delta: float) -> void:
 	if target and is_instance_valid(target):
 		var to := target.global_position - global_position
