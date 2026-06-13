@@ -1,20 +1,19 @@
 ; Engine configuration file.
-; It's best edited using the editor UI and not directly,
-; since the parameters that go here are not all obvious.
-;
-; Format:
-;   [section] ; section goes between []
-;   param=value ; assign values to parameters
+; Notebook Awakening — She Built This Game Jam (Sentry)
 
 config_version=5
 
 [application]
 
-config/name="SheBuild Game Jam"
-config/description="A game jam project built with Godot 4."
-run/main_scene="res://scenes/main.tscn"
+config/name="Notebook Awakening"
+config/description="Awaken as a doodle. Dodge the pencil. Escape the eraser."
+run/main_scene="res://scenes/title.tscn"
 config/features=PackedStringArray("4.5", "GL Compatibility")
 config/icon="res://icon.svg"
+
+[autoload]
+
+Game="*res://scripts/game_state.gd"
 
 [display]
 
@@ -27,3 +26,4 @@ window/stretch/aspect="keep"
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.15, 0.15, 0.18, 1)
