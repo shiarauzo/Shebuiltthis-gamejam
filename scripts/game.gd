@@ -10,8 +10,8 @@ extends Node2D
 
 signal game_over(won: bool)
 
-@export var eraser_trigger_time := 30.0
-@export var escape_open_delay := 12.0
+@export var eraser_trigger_time := 22.0
+@export var escape_open_delay := 10.0
 
 var survival_time := 0.0
 var phase := 1
@@ -25,9 +25,22 @@ var escape_edge: EscapeEdge
 var hud_label: Label
 var phase_label: Label
 
+# Screen FX
+var cam: Camera2D
+var flash_rect: ColorRect
+var fade_rect: ColorRect
+var _shake_t := 0.0
+var _shake_dur := 0.0
+var _shake_mag := 0.0
+
 func _ready() -> void:
 	randomize()
 	var r: Rect2 = Game.sheet_rect
+
+	cam = Camera2D.new()
+	cam.position = Vector2(640, 360)
+	add_child(cam)
+	cam.make_current()
 
 	var nb := Notebook.new()
 	nb.z_index = -10
@@ -41,6 +54,7 @@ func _ready() -> void:
 	player.global_position = r.position + r.size * 0.5
 	add_child(player)
 	player.died.connect(_on_player_died)
+	player.health_changed.connect(_on_player_hit)
 
 	pencil = Pencil.new()
 	pencil.target = player
@@ -66,7 +80,50 @@ func _build_hud() -> void:
 	phase_label.add_theme_color_override("font_color", Color(0.55, 0.30, 0.32))
 	layer.add_child(phase_label)
 
+	# Screen-FX overlay (flash + fade), above the HUD.
+	var fx := CanvasLayer.new()
+	fx.layer = 10
+	add_child(fx)
+
+	flash_rect = ColorRect.new()
+	flash_rect.color = Color(1, 0, 0, 0)
+	flash_rect.size = Vector2(1280, 720)
+	flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fx.add_child(flash_rect)
+
+	fade_rect = ColorRect.new()
+	fade_rect.color = Color(0.06, 0.06, 0.08, 1)
+	fade_rect.size = Vector2(1280, 720)
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fx.add_child(fade_rect)
+	var fade_tw := create_tween()
+	fade_tw.tween_property(fade_rect, "color:a", 0.0, 0.45)
+
+func shake(mag: float, dur: float) -> void:
+	_shake_mag = mag
+	_shake_dur = dur
+	_shake_t = dur
+
+func flash(col: Color, peak: float, dur: float) -> void:
+	if flash_rect == null:
+		return
+	flash_rect.color = Color(col.r, col.g, col.b, peak)
+	var tw := create_tween()
+	tw.tween_property(flash_rect, "color:a", 0.0, dur)
+
+func _on_player_hit(_health: int) -> void:
+	shake(9.0, 0.28)
+	flash(Color(0.85, 0.1, 0.1), 0.32, 0.32)
+
 func _process(delta: float) -> void:
+	# Screen shake decays even during the end cinematic.
+	if _shake_t > 0.0 and cam:
+		_shake_t -= delta
+		var amt := _shake_mag * maxf(0.0, _shake_t / _shake_dur)
+		cam.offset = Vector2(randf_range(-amt, amt), randf_range(-amt, amt))
+	elif cam:
+		cam.offset = Vector2.ZERO
+
 	if ended:
 		return
 	survival_time += delta
@@ -95,6 +152,9 @@ func _start_phase_two() -> void:
 	eraser.global_position = _farthest_corner_from(player.global_position)
 	add_child(eraser)
 	eraser.caught_player.connect(_on_player_died)
+	# Dramatic "the eraser woke up" jolt.
+	shake(16.0, 0.5)
+	flash(Color(0.95, 0.55, 0.66), 0.4, 0.5)
 
 func _farthest_corner_from(p: Vector2) -> Vector2:
 	var r: Rect2 = Game.sheet_rect

@@ -92,6 +92,14 @@ func _ready() -> void:
 	tw.tween_property(spine, "modulate:a", 0.0, 0.4)
 	tw.tween_property(center, "modulate:a", 1.0, 0.5)
 
+	# Quick fade-in on top of everything to smooth the cut from gameplay.
+	var fade := ColorRect.new()
+	fade.color = Color(0.06, 0.06, 0.08, 1)
+	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(fade)
+	create_tween().tween_property(fade, "color:a", 0.0, 0.3)
+
 	get_tree().create_timer(1.7).timeout.connect(_enable_retry)
 
 func _enable_retry() -> void:

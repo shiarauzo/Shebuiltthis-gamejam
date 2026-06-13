@@ -13,7 +13,14 @@ func _ready() -> void:
 	# A faint doodled stick figure waking up, drawn via a small Node2D.
 	var doodle := _TitleDoodle.new()
 	doodle.position = Vector2(VW * 0.5, VH * 0.5 + 90)
+	doodle.scale = Vector2.ZERO
 	add_child(doodle)
+	# Awakening beat: the doodle pops awake with a little wobble.
+	var dt := create_tween()
+	dt.tween_interval(0.25)
+	dt.tween_property(doodle, "scale", Vector2(1.6, 1.6), 0.55).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	dt.parallel().tween_property(doodle, "rotation", 0.12, 0.3).set_trans(Tween.TRANS_SINE)
+	dt.tween_property(doodle, "rotation", 0.0, 0.25).set_trans(Tween.TRANS_SINE)
 
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -55,6 +62,18 @@ func _ready() -> void:
 	prompt.add_theme_color_override("font_color", Color(0.2, 0.7, 0.32))
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(prompt)
+	# Gentle pulsing on the prompt to draw the eye.
+	var pt := create_tween().set_loops()
+	pt.tween_property(prompt, "modulate:a", 0.4, 0.7).set_trans(Tween.TRANS_SINE)
+	pt.tween_property(prompt, "modulate:a", 1.0, 0.7).set_trans(Tween.TRANS_SINE)
+
+	# Fade in from black.
+	var fade := ColorRect.new()
+	fade.color = Color(0.06, 0.06, 0.08, 1)
+	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(fade)
+	create_tween().tween_property(fade, "color:a", 0.0, 0.45)
 
 func _input(event: InputEvent) -> void:
 	if (event is InputEventKey and event.pressed and not event.echo) \
