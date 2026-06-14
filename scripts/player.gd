@@ -1,7 +1,7 @@
 extends CharacterBody2D
 class_name Player
 ## The awakened stick figure. Top-down movement (WASD + arrows), 3 lives.
-## Health is shown by the figure fading out — no HUD hearts.
+## Health is shown by the sketchy hearts HUD (game.gd) plus the figure fading out.
 
 signal died
 signal health_changed(health: int)

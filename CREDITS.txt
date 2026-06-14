@@ -14,6 +14,11 @@ Art / Visuals
     ruled lines, and doodle decorations. These are placeholder art
     created for this jam. (If replaced with hand-drawn art later,
     that art will be created during the jam window and credited here.)
+  - The sketchy heart health icons (assets/sprites/heart_full.svg,
+    heart_empty.svg) were generated procedurally with rough.js, a
+    deterministic geometry library — NOT generative AI. The generator
+    script is included at tools/heart-gen/ and can be re-run to
+    reproduce the SVGs exactly.
   - NO generative-AI art was used (per jam rules).
 
 Audio

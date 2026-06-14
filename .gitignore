@@ -17,5 +17,8 @@ tests/last_run.log
 # Local agent/session files
 .claude/
 
+# Node deps for the procedural asset generator (tools/heart-gen)
+node_modules/
+
 # e2e screenshots
 tests/e2e/shots/

@@ -1,7 +1,9 @@
 extends Area2D
 class_name Eraser
 ## The giant eraser (phase 2). Chases the player, erases ink it passes over,
-## and kills the player on contact.
+## and chips away one heart each time it touches the player (player i-frames
+## space the hits out, so contact drains a heart roughly once per i-frame
+## window rather than an instant kill).
 
 signal caught_player
 
@@ -28,14 +30,6 @@ func _ready() -> void:
 
 func _arm() -> void:
 	_armed = true
-	if not monitoring:
-		return  # collision is paused (e.g. during a page flip)
-	# If the player is already overlapping when grace ends, catch them now
-	# (body_entered won't re-fire for an existing overlap).
-	for b in get_overlapping_bodies():
-		if b.is_in_group("player"):
-			caught_player.emit()
-			return
 
 	# Trailing eraser-shaving dust.
 	var dust := CPUParticles2D.new()
@@ -64,6 +58,15 @@ func _physics_process(delta: float) -> void:
 	for ink in get_tree().get_nodes_in_group("ink"):
 		if is_instance_valid(ink) and global_position.distance_to(ink.mid) < ERASE_RADIUS:
 			ink.queue_free()
+
+	# Contact damage: while overlapping the player, keep signalling a hit. The
+	# player's i-frames swallow the repeats, so each touch costs one heart and
+	# the player gets a window to break away before the next.
+	if _armed and monitoring:
+		for b in get_overlapping_bodies():
+			if b.is_in_group("player"):
+				caught_player.emit()
+				break
 
 func _on_body_entered(body: Node) -> void:
 	if _armed and body.is_in_group("player"):

@@ -1,0 +1,13 @@
+{
+  "name": "heart-gen",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Procedurally generates the sketchy heart HUD SVGs with rough.js (no AI, no hand-drawn assets).",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node generate.js"
+  },
+  "dependencies": {
+    "roughjs": "^4.6.6"
+  }
+}

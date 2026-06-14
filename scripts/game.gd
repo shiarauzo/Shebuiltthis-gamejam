@@ -30,11 +30,24 @@ var edge_glow: EscapeEdge
 var hud_label: Label
 var dialogue_label: Label
 
+# Sketchy heart health display (procedural rough.js SVGs).
+var heart_full_tex: Texture2D
+var heart_empty_tex: Texture2D
+var hearts: Array[TextureRect] = []
+
 # Screen FX
 var cam: Camera2D
 var flash_rect: ColorRect
 var fade_rect: ColorRect
 var flip_layer: CanvasLayer
+
+# 3D page-turn: a real lit sheet (Camera3D + QuadMesh in a SubViewport) turns
+# over the 2D notebook, so the flip reads as paper rotating in space.
+var flip3d_layer: CanvasLayer
+var flip_vp: SubViewport
+var flip_pivot: Node3D
+var flip_mat: StandardMaterial3D
+
 var _shake_t := 0.0
 var _shake_dur := 0.0
 var _shake_mag := 0.0
@@ -116,7 +129,7 @@ func _spawn_eraser() -> void:
 	eraser.target = player
 	eraser.global_position = r.position + Vector2(28, 28)
 	add_child(eraser)
-	eraser.caught_player.connect(player.die)
+	eraser.caught_player.connect(player.take_damage)  # contact chips a heart, not instant death
 	shake(14.0, 0.45)
 	flash(Color(0.95, 0.55, 0.66), 0.35, 0.45)
 
@@ -168,46 +181,39 @@ func _play_flip() -> void:
 	jt.parallel().tween_property(player, "rotation", 0.5, 0.35)
 	await jt.finished
 
-	# A page sweeps across (the page being turned).
-	var page_rect := ColorRect.new()
-	page_rect.color = Color(0.97, 0.96, 0.88)
-	page_rect.position = Vector2(r.position.x + r.size.x, r.position.y)
-	page_rect.size = Vector2(0, r.size.y)
-	page_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	flip_layer.add_child(page_rect)
-	var shadow := ColorRect.new()
-	shadow.color = Color(0.0, 0.0, 0.0, 0.18)
-	shadow.size = Vector2(18, r.size.y)
-	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	flip_layer.add_child(shadow)
+	# A real 3D sheet turns over the whole view.
+	_ensure_flip3d()
+	var dur := 0.18 if _fast else 0.6
+	flip_pivot.rotation.y = 0.0
+	_set_flip_alpha(0.0)
+	flip3d_layer.visible = true
 
-	# Phase A: the turning page closes over from the right.
-	var ta := create_tween()
-	ta.tween_property(page_rect, "position:x", r.position.x, 0.28).set_trans(Tween.TRANS_QUAD)
-	ta.parallel().tween_property(page_rect, "size:x", r.size.x, 0.28).set_trans(Tween.TRANS_QUAD)
-	ta.parallel().tween_property(shadow, "position:x", r.position.x, 0.28)
-	await ta.finished
+	# The leaving page settles flat over the screen, hiding the swap beneath it.
+	var tin := create_tween()
+	tin.tween_method(_set_flip_alpha, 0.0, 1.0, dur * 0.18)
+	await tin.finished
 
 	# Behind the covered page: advance and reset for the next sheet.
 	page += 1
-	if page > total_pages:
-		page_rect.queue_free()
-		shadow.queue_free()
+	var ending := page > total_pages
+	if not ending:
+		_clear_ink()
+		player.global_position = Vector2(r.position.x + 60.0, r.position.y + r.size.y * 0.5)
+		player.rotation = 0.0
+		if eraser and is_instance_valid(eraser):
+			eraser.global_position = r.position + Vector2(40.0, 40.0)
+
+	# Turn the page around the left-hand spine: it lifts edge-on (the 3D beat),
+	# then lays over to the left, fading out so the fresh sheet is revealed.
+	var tt := create_tween()
+	tt.tween_property(flip_pivot, "rotation:y", -PI, dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tt.parallel().tween_method(_set_flip_alpha, 1.0, 0.0, dur * 0.45).set_delay(dur * 0.55)
+	await tt.finished
+	flip3d_layer.visible = false
+
+	if ending:
 		_begin_ending()
 		return
-	_clear_ink()
-	player.global_position = Vector2(r.position.x + 60.0, r.position.y + r.size.y * 0.5)
-	player.rotation = 0.0
-	if eraser and is_instance_valid(eraser):
-		eraser.global_position = r.position + Vector2(40.0, 40.0)
-
-	# Phase B: the page sweeps open to reveal the fresh sheet.
-	var tb := create_tween()
-	tb.tween_property(page_rect, "position:x", r.position.x - r.size.x, 0.28).set_trans(Tween.TRANS_QUAD)
-	tb.parallel().tween_property(shadow, "position:x", r.position.x - 18.0, 0.28)
-	await tb.finished
-	page_rect.queue_free()
-	shadow.queue_free()
 
 	edge_glow.active = true
 	edge_glow.queue_redraw()
@@ -216,6 +222,84 @@ func _play_flip() -> void:
 	player.invincible = false
 	player.set_physics_process(true)
 	state = "play"
+
+# Lazily build the 3D page (a lit QuadMesh hinged at the spine, rendered into a
+# transparent SubViewport overlaid on the 2D game).
+func _ensure_flip3d() -> void:
+	if flip3d_layer:
+		return
+	flip3d_layer = CanvasLayer.new()
+	flip3d_layer.layer = 6
+	flip3d_layer.visible = false
+	add_child(flip3d_layer)
+
+	var vpc := SubViewportContainer.new()
+	vpc.stretch = true
+	vpc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vpc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flip3d_layer.add_child(vpc)
+
+	flip_vp = SubViewport.new()
+	flip_vp.size = Vector2i(1280, 720)
+	flip_vp.transparent_bg = true
+	flip_vp.own_world_3d = true
+	flip_vp.world_3d = World3D.new()
+	flip_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	vpc.add_child(flip_vp)
+
+	# Page sized to the notebook sheet (not the whole frame) so its edge is
+	# visibly seen sweeping across and revealing the next sheet behind it.
+	# Camera maps ~12.21 x 6.87 units to the full viewport; the sheet is
+	# 1184x624 of 1280x720, hence these dimensions.
+	var pw := 11.3
+	var ph := 5.95
+
+	var cam3d := Camera3D.new()
+	cam3d.projection = Camera3D.PROJECTION_PERSPECTIVE
+	cam3d.fov = 55.0
+	cam3d.position = Vector3(0.0, 0.0, 6.6)
+	# No environment: an environment background clears the viewport opaque
+	# (white) in GL Compatibility, which would hide the 2D game. Keeping the
+	# viewport transparent and lighting both faces directly avoids that.
+	flip_vp.add_child(cam3d)
+
+	# Key + fill so whichever way the sheet faces, it catches light (shading is
+	# what sells the turn); emission below keeps it from ever going black.
+	var key := DirectionalLight3D.new()
+	key.rotation_degrees = Vector3(-40.0, 35.0, 0.0)
+	key.light_energy = 1.0
+	flip_vp.add_child(key)
+	var fill := DirectionalLight3D.new()
+	fill.rotation_degrees = Vector3(-20.0, -150.0, 0.0)
+	fill.light_energy = 0.6
+	flip_vp.add_child(fill)
+
+	# Pivot at the left spine; the sheet hangs to its right.
+	flip_pivot = Node3D.new()
+	flip_pivot.position = Vector3(-pw * 0.5, 0.0, 0.0)
+	flip_vp.add_child(flip_pivot)
+
+	var mesh := MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2(pw, ph)
+	mesh.mesh = quad
+	mesh.position = Vector3(pw * 0.5, 0.0, 0.0)  # left edge rests on the pivot
+	flip_mat = StandardMaterial3D.new()
+	flip_mat.albedo_color = Color(0.97, 0.96, 0.88, 0.0)
+	flip_mat.cull_mode = BaseMaterial3D.CULL_DISABLED  # both faces of the page
+	flip_mat.roughness = 0.95
+	flip_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# Faint self-illumination so the paper always reads cream, with the lights
+	# adding the directional shading that makes the turn feel 3D.
+	flip_mat.emission_enabled = true
+	flip_mat.emission = Color(0.97, 0.96, 0.88)
+	flip_mat.emission_energy_multiplier = 0.45
+	mesh.material_override = flip_mat
+	flip_pivot.add_child(mesh)
+
+func _set_flip_alpha(a: float) -> void:
+	if flip_mat:
+		flip_mat.albedo_color.a = a
 
 # --- Ending --------------------------------------------------------------
 
@@ -251,9 +335,16 @@ func _begin_ending() -> void:
 func _on_player_died() -> void:
 	_end_game(false)
 
-func _on_player_hit(_health: int) -> void:
+func _on_player_hit(health: int) -> void:
 	shake(9.0, 0.28)
 	flash(Color(0.85, 0.1, 0.1), 0.32, 0.32)
+	_update_hearts(health)
+	# Pop the heart that just emptied for tactile feedback.
+	if health >= 0 and health < hearts.size():
+		var lost := hearts[health]
+		lost.scale = Vector2(1.5, 1.5)
+		var tw := create_tween()
+		tw.tween_property(lost, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _end_game(won: bool) -> void:
 	if ended:
@@ -265,7 +356,10 @@ func _end_game(won: bool) -> void:
 	game_over.emit(won)
 	if Game.testing:
 		return
-	get_tree().change_scene_to_file("res://scenes/end.tscn")
+	# Deferred: a loss can be triggered from inside a physics callback (the
+	# eraser's contact check), and swapping scenes mid-callback tears down
+	# collision objects illegally. Defer to the idle frame.
+	get_tree().call_deferred("change_scene_to_file", "res://scenes/end.tscn")
 
 # --- Helpers -------------------------------------------------------------
 
@@ -301,6 +395,35 @@ func _build_hud() -> void:
 	dialogue_label.rotation_degrees = -3.0
 	dialogue_label.visible = false
 	layer.add_child(dialogue_label)
+
+	_build_hearts(layer)
+
+func _build_hearts(layer: CanvasLayer) -> void:
+	heart_full_tex = load("res://assets/sprites/heart_full.svg") as Texture2D
+	heart_empty_tex = load("res://assets/sprites/heart_empty.svg") as Texture2D
+
+	# Three hearts pinned to the top-right of the page.
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	box.position = Vector2(Game.sheet_rect.position.x + Game.sheet_rect.size.x - 150.0, 10.0)
+	box.rotation_degrees = -2.0  # slight hand-pinned tilt
+	layer.add_child(box)
+
+	for i in range(Player.MAX_HEALTH):
+		var h := TextureRect.new()
+		h.texture = heart_full_tex
+		h.custom_minimum_size = Vector2(44, 44)
+		h.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		h.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		h.pivot_offset = Vector2(22, 22)
+		box.add_child(h)
+		hearts.append(h)
+
+	_update_hearts(player.health)
+
+func _update_hearts(health: int) -> void:
+	for i in range(hearts.size()):
+		hearts[i].texture = heart_full_tex if i < health else heart_empty_tex
 
 func _build_fx() -> void:
 	var fx := CanvasLayer.new()
