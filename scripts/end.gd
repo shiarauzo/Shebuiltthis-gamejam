@@ -59,23 +59,27 @@ func _ready() -> void:
 
 	center.modulate.a = 0.0
 
-	# Notebook cover panels.
+	# Notebook cover panels (sized to the actual viewport, not a fixed constant).
+	var vp := get_viewport_rect().size
+	var vw := vp.x
+	var vh := vp.y
+
 	var left := ColorRect.new()
 	left.color = Color(0.46, 0.29, 0.20)
-	left.size = Vector2(VW / 2.0, VH)
-	left.position = Vector2(-VW / 2.0, 0)
+	left.size = Vector2(vw / 2.0, vh)
+	left.position = Vector2(-vw / 2.0, 0)
 	add_child(left)
 
 	var right := ColorRect.new()
 	right.color = Color(0.42, 0.26, 0.18)
-	right.size = Vector2(VW / 2.0, VH)
-	right.position = Vector2(VW, 0)
+	right.size = Vector2(vw / 2.0, vh)
+	right.position = Vector2(vw, 0)
 	add_child(right)
 
 	var spine := ColorRect.new()
 	spine.color = Color(0.30, 0.18, 0.12)
-	spine.size = Vector2(10, VH)
-	spine.position = Vector2(VW / 2.0 - 5.0, 0)
+	spine.size = Vector2(10, vh)
+	spine.position = Vector2(vw / 2.0 - 5.0, 0)
 	spine.modulate.a = 0.0
 	add_child(spine)
 
@@ -83,12 +87,12 @@ func _ready() -> void:
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(left, "position", Vector2(0, 0), 0.55).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
-	tw.tween_property(right, "position", Vector2(VW / 2.0, 0), 0.55).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(right, "position", Vector2(vw / 2.0, 0), 0.55).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	tw.tween_property(spine, "modulate:a", 1.0, 0.55)
 	tw.chain().tween_interval(0.35)
 	tw.set_parallel(true)
-	tw.tween_property(left, "position", Vector2(-VW / 2.0, 0), 0.5).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(right, "position", Vector2(VW, 0), 0.5).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(left, "position", Vector2(-vw / 2.0, 0), 0.5).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(right, "position", Vector2(vw, 0), 0.5).set_trans(Tween.TRANS_CUBIC)
 	tw.tween_property(spine, "modulate:a", 0.0, 0.4)
 	tw.tween_property(center, "modulate:a", 1.0, 0.5)
 
