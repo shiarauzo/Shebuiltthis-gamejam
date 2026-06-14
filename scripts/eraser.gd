@@ -37,7 +37,9 @@ func _ready() -> void:
 	dust.emitting = true
 	add_child(dust)
 
-func _process(delta: float) -> void:
+func _physics_process(delta: float) -> void:
+	# Runs at a fixed 60 Hz (not the uncapped visual frame rate) and settles with
+	# the physics step. Ink is capped (see Pencil.MAX_INK), so this scan is small.
 	if target and is_instance_valid(target):
 		var to := target.global_position - global_position
 		if to.length() > 1.0:
@@ -47,8 +49,6 @@ func _process(delta: float) -> void:
 	for ink in get_tree().get_nodes_in_group("ink"):
 		if is_instance_valid(ink) and global_position.distance_to(ink.mid) < ERASE_RADIUS:
 			ink.queue_free()
-
-	queue_redraw()
 
 func _on_body_entered(body: Node) -> void:
 	if body.is_in_group("player"):
