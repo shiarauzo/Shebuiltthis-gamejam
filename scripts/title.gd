@@ -1,9 +1,6 @@
 extends Control
 ## Title screen (P1). Press any key / click to start.
 
-const VW := 1280.0
-const VH := 720.0
-
 var _can_input := false
 
 func _ready() -> void:
@@ -13,8 +10,9 @@ func _ready() -> void:
 	add_child(bg)
 
 	# A faint doodled stick figure waking up, drawn via a small Node2D.
+	var vp := get_viewport_rect().size
 	var doodle := _TitleDoodle.new()
-	doodle.position = Vector2(VW * 0.5, VH * 0.5 + 90)
+	doodle.position = Vector2(vp.x * 0.5, vp.y * 0.5 + 90)
 	doodle.scale = Vector2.ZERO
 	add_child(doodle)
 	# Awakening beat: the doodle pops awake with a little wobble.

@@ -2,9 +2,6 @@ extends Control
 ## End screen (P3). The notebook closes (two cover panels sweep in), then opens
 ## to reveal the win/lose message + score. Press any key to retry.
 
-const VW := 1280.0
-const VH := 720.0
-
 var _can_retry := false
 var _retried := false
 
