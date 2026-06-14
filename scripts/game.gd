@@ -166,12 +166,12 @@ func _begin_play() -> void:
 func _introduce_threats() -> void:
 	if page >= 2 and pencil.target == null:
 		_drop_in_pencil()
-		_say("uh— a pencil falls from the sky!")
+		_say("uh oh, a pencil falls from the sky!")
 	if page >= 3 and not _erasers_on:
 		_erasers_on = true
 		_eraser_timer = 1.2 if _fast else 2.4
 		_spawn_eraser_wave()  # the first one right away
-		_say("erasers!! they're raining down— run!")
+		_say("erasers!! they're raining down, run!")
 
 ## The pencil drops from above, then starts hunting once it lands.
 func _drop_in_pencil() -> void:
@@ -246,7 +246,7 @@ func _process(delta: float) -> void:
 		# Page 1: nudge the doodle onward when it nears the (invisible) edge.
 		if page == 1 and not _edge_hint_shown and player.global_position.x >= r.position.x + r.size.x - 260.0:
 			_edge_hint_shown = true
-			_say("huh— looks like the path continues →")
+			_say("huh, looks like the path continues →")
 
 		if player.global_position.x >= r.position.x + r.size.x - 24.0:
 			_flip_page()
@@ -338,12 +338,10 @@ func _ensure_flip3d() -> void:
 	flip_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	vpc.add_child(flip_vp)
 
-	# Page sized to the notebook sheet (not the whole frame) so its edge is
-	# visibly seen sweeping across and revealing the next sheet behind it.
-	# Camera maps ~12.21 x 6.87 units to the full viewport; the sheet is
-	# 1184x624 of 1280x720, hence these dimensions.
-	var pw := 11.3
-	var ph := 5.95
+	# The page now fills the whole screen (camera maps ~12.21 x 6.87 units to the
+	# viewport); a touch larger so it fully covers as it turns.
+	var pw := 12.7
+	var ph := 7.15
 
 	var cam3d := Camera3D.new()
 	cam3d.projection = Camera3D.PROJECTION_PERSPECTIVE
@@ -472,10 +470,14 @@ func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 
+	var hand := load("res://assets/fonts/Caveat.ttf") as Font
+
 	hud_label = Label.new()
 	hud_label.position = Vector2(20, 12)
-	hud_label.add_theme_font_size_override("font_size", 20)
+	hud_label.add_theme_font_size_override("font_size", 28)
 	hud_label.add_theme_color_override("font_color", Color(0.15, 0.15, 0.2))
+	if hand:
+		hud_label.add_theme_font_override("font", hand)
 	layer.add_child(hud_label)
 
 	# Dialogue shown in a little speech bubble so it reads as someone talking.
@@ -496,8 +498,10 @@ func _build_hud() -> void:
 	layer.add_child(dialogue_box)
 
 	dialogue_label = Label.new()
-	dialogue_label.add_theme_font_size_override("font_size", 28)
-	dialogue_label.add_theme_color_override("font_color", Color(0.16, 0.18, 0.30))
+	dialogue_label.add_theme_font_size_override("font_size", 34)
+	dialogue_label.add_theme_color_override("font_color", Color(0.16, 0.16, 0.22))
+	if hand:
+		dialogue_label.add_theme_font_override("font", hand)
 	dialogue_box.add_child(dialogue_label)
 
 	_build_hearts(layer)
@@ -509,7 +513,7 @@ func _build_hearts(layer: CanvasLayer) -> void:
 	# Three hearts pinned to the top-right of the page.
 	var box := HBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
-	box.position = Vector2(Game.sheet_rect.position.x + Game.sheet_rect.size.x - 150.0, 10.0)
+	box.position = Vector2(Game.sheet_rect.position.x + Game.sheet_rect.size.x - 170.0, 18.0)
 	box.rotation_degrees = -2.0  # slight hand-pinned tilt
 	layer.add_child(box)
 
@@ -541,7 +545,7 @@ func _build_fx() -> void:
 	fx.add_child(flash_rect)
 
 	fade_rect = ColorRect.new()
-	fade_rect.color = Color(0.06, 0.06, 0.08, 1)
+	fade_rect.color = Color(0, 0, 0, 1)
 	fade_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fx.add_child(fade_rect)

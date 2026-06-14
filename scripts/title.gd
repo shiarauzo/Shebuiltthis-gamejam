@@ -1,82 +1,84 @@
 extends Control
-## Title screen (P1). Press any key / click to start.
+## Title screen (P1), Excalidraw-style: graph paper + a rough.js sketchy title
+## card. Press any key / click to start.
 
 var _can_input := false
 
 func _ready() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.98, 0.97, 0.90)
+	var vp := get_viewport_rect().size
+
+	# Graph-paper background (same texture as the game) for the Excalidraw canvas feel.
+	var bg := TextureRect.new()
+	var grid := load("res://assets/sprites/grid_paper.jpg") as Texture2D
+	if grid:
+		bg.texture = grid
+		bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		bg.stretch_mode = TextureRect.STRETCH_SCALE
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 
-	# A faint doodled stick figure waking up, drawn via a small Node2D.
-	var vp := get_viewport_rect().size
-	var doodle := _TitleDoodle.new()
-	doodle.position = Vector2(vp.x * 0.5, vp.y * 0.5 + 90)
-	doodle.scale = Vector2.ZERO
-	add_child(doodle)
-	# Awakening beat: the doodle pops awake with a little wobble.
-	var dt := create_tween()
-	dt.tween_interval(0.25)
-	dt.tween_property(doodle, "scale", Vector2(1.6, 1.6), 0.55).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	dt.parallel().tween_property(doodle, "rotation", 0.12, 0.3).set_trans(Tween.TRANS_SINE)
-	dt.tween_property(doodle, "rotation", 0.0, 0.25).set_trans(Tween.TRANS_SINE)
+	# Sketchy rough.js title card, centred and tilted a hair like a placed sticker.
+	var card := TextureRect.new()
+	card.texture = load("res://assets/sprites/title_card.svg")
+	card.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	card.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var cw := 880.0
+	var ch := 330.0
+	card.size = Vector2(cw, ch)
+	card.position = Vector2((vp.x - cw) * 0.5, (vp.y - ch) * 0.5 - 30.0)
+	card.rotation_degrees = -1.5
+	card.pivot_offset = card.size * 0.5
+	add_child(card)
 
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
+	var ink := Color(0.12, 0.14, 0.22)
+	var card_top := card.position.y
+	var hand := load("res://assets/fonts/Caveat.ttf") as Font
 
-	var vbox := VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 14)
-	center.add_child(vbox)
+	# "The Notebook" in a handwritten font, centred in the card.
+	var title := _ctext("The Notebook", 120, ink, vp.x)
+	if hand:
+		title.add_theme_font_override("font", hand)
+	title.position = Vector2(0, card_top + 70.0)
+	add_child(title)
 
-	var title := Label.new()
-	title.text = "NOTEBOOK AWAKENING"
-	title.add_theme_font_size_override("font_size", 60)
-	title.add_theme_color_override("font_color", Color(0.13, 0.18, 0.55))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
-
-	var sub := Label.new()
-	sub.text = "You are a doodle. You just woke up."
-	sub.add_theme_font_size_override("font_size", 22)
-	sub.add_theme_color_override("font_color", Color(0.3, 0.3, 0.35))
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(sub)
-
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 40)
-	vbox.add_child(spacer)
-
-	var how := Label.new()
-	how.text = "Move: WASD / Arrows / drag      Dodge the ink. Survive. Escape."
-	how.add_theme_font_size_override("font_size", 18)
-	how.add_theme_color_override("font_color", Color(0.4, 0.4, 0.45))
-	how.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(how)
-
-	var prompt := Label.new()
-	prompt.text = "Press any key to awaken"
-	prompt.add_theme_font_size_override("font_size", 24)
-	prompt.add_theme_color_override("font_color", Color(0.2, 0.7, 0.32))
-	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(prompt)
-	# Gentle pulsing on the prompt to draw the eye.
+	var prompt := _ctext("press any key to continue", 30, Color(0.16, 0.45, 0.5), vp.x)
+	if hand:
+		prompt.add_theme_font_override("font", hand)
+	prompt.position = Vector2(0, card_top + ch + 40.0)
+	add_child(prompt)
 	var pt := create_tween().set_loops()
 	pt.tween_property(prompt, "modulate:a", 0.4, 0.7).set_trans(Tween.TRANS_SINE)
 	pt.tween_property(prompt, "modulate:a", 1.0, 0.7).set_trans(Tween.TRANS_SINE)
 
+	# Shiara's own doodle, waking up below everything (clear of the card frame).
+	var doodle := Sprite2D.new()
+	doodle.texture = load("res://assets/sprites/doodle_run/run_0.png")
+	doodle.position = Vector2(vp.x * 0.5, card_top + ch + 130.0)
+	doodle.scale = Vector2.ZERO
+	add_child(doodle)
+	var dt := create_tween()
+	dt.tween_interval(0.2)
+	dt.tween_property(doodle, "scale", Vector2(0.42, 0.42), 0.55).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+
 	# Fade in from black.
 	var fade := ColorRect.new()
-	fade.color = Color(0.06, 0.06, 0.08, 1)
+	fade.color = Color(0.0, 0.0, 0.0, 1)
 	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(fade)
 	create_tween().tween_property(fade, "color:a", 0.0, 0.45)
 
-	# Don't let a stray keypress during the WebGL load skip the title unseen.
 	get_tree().create_timer(0.5).timeout.connect(func(): _can_input = true)
+
+func _ctext(text: String, size: int, col: Color, width: float) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", col)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.size.x = width
+	l.position.x = 0
+	return l
 
 func _input(event: InputEvent) -> void:
 	if not _can_input:
@@ -92,7 +94,7 @@ class _TitleDoodle extends Node2D:
 		Game.boil_tick.connect(queue_redraw)
 
 	func _draw() -> void:
-		var col := Color(0.12, 0.12, 0.18, 0.5)
+		var col := Color(0.12, 0.12, 0.18, 0.55)
 		var head := PackedVector2Array()
 		for i in range(11):
 			var a := i * TAU / 10.0
@@ -102,8 +104,3 @@ class _TitleDoodle extends Node2D:
 		draw_line(Game.boil_jitter(Vector2(-12, 1)), Game.boil_jitter(Vector2(12, 1)), col, 2.0)
 		draw_line(Game.boil_jitter(Vector2(0, 14)), Game.boil_jitter(Vector2(-10, 30)), col, 2.0)
 		draw_line(Game.boil_jitter(Vector2(0, 14)), Game.boil_jitter(Vector2(10, 30)), col, 2.0)
-		# little "awakening" sparks
-		for i in range(3):
-			var a := -PI / 2.0 + (i - 1) * 0.5
-			var p := Vector2(cos(a), sin(a)) * 34.0 + Vector2(0, -18)
-			draw_line(Game.boil_jitter(p), Game.boil_jitter(p + Vector2(cos(a), sin(a)) * 8.0), col, 2.0)

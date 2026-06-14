@@ -88,12 +88,6 @@ func _draw() -> void:
 	else:
 		draw_rect(r, Color(0.99, 0.99, 0.98), true)
 
-	# Page border as a boiled rectangle outline.
-	var border := PackedVector2Array([
-		_j(r.position), _j(r.position + Vector2(r.size.x, 0)),
-		_j(r.position + r.size), _j(r.position + Vector2(0, r.size.y)), _j(r.position)])
-	draw_polyline(border, Color(0.80, 0.80, 0.74), 1.5)
-
 	# Decorative doodles for this page (also the things the player bumps into).
 	var col := Color(0.35, 0.4, 0.55, 0.7)
 	for d in _doodles:

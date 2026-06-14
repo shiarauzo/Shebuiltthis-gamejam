@@ -5,7 +5,8 @@ var final_score: float = 0.0
 var won: bool = false
 
 ## The playable notebook area, in world coordinates (viewport is 1280x720).
-var sheet_rect: Rect2 = Rect2(48, 48, 1184, 624)
+## Full-screen: the graph paper fills the whole window (HUD draws on top).
+var sheet_rect: Rect2 = Rect2(0, 0, 1280, 720)
 
 ## When true, the gameplay scene resolves win/lose WITHOUT changing scenes.
 ## Used only by the headless test harness; always false in normal play.
