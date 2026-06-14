@@ -38,6 +38,13 @@ func _process(delta: float) -> void:
 			_state = "commit"
 			_t = 0.0
 			_commit_pos = global_position
+			# Fairness: if the pencil has caught up to a (stationary) player, push
+			# the stroke off-center so it never pins them dead-on and repeated
+			# commits don't stack on the same spot. A moving player is already
+			# safe because the pencil (140 px/s) lags behind them (200 px/s).
+			if is_instance_valid(target) and _commit_pos.distance_to(target.global_position) < 28.0:
+				var off := randf() * TAU
+				_commit_pos = target.global_position + Vector2(cos(off), sin(off)) * 60.0
 			_stroke_angle = randf() * TAU
 	else:  # commit
 		_t += delta
