@@ -9,11 +9,21 @@ Game design, code, and all visuals
   - Shiara Arauzo
 
 Art / Visuals
-  - All graphics are drawn procedurally in-engine (GDScript _draw):
-    the stick figure, pencil, eraser, ink strokes, notebook paper,
-    ruled lines, and doodle decorations. These are placeholder art
-    created for this jam. (If replaced with hand-drawn art later,
-    that art will be created during the jam window and credited here.)
+  - HAND-DRAWN by Shiara Arauzo during the jam:
+      * the player doodle — a 7-frame run animation (source in doodle-run/,
+        background-keyed + ink-tinted by tools/process_doodle.gd into
+        assets/sprites/doodle_run/).
+      * the eraser (assets/eraser.png).
+  - Drawn procedurally in-engine (GDScript _draw): ink strokes, the page
+    border, and the decorative page doodles (star, spiral, cloud, squiggle).
+  - THIRD-PARTY assets (pre-existing, NOT created by us — credited per jam rules):
+      * Graph-paper background (assets/sprites/grid_paper.jpg) —
+        "Cuaderno papel textura limpio cuadrado hoja en blanco" via Vecteezy,
+        https://es.vecteezy.com/arte-vectorial/7385469-cuaderno-papel-textura-limpio-cuadrado-hoja-en-blanco
+        (used under the Vecteezy Free License, attribution required).
+      * Pencil (assets/pencil.png) — reference image found via Pinterest,
+        https://i.pinimg.com/736x/bb/1b/b0/bb1bb08588a30c285cae8fe4a3a07444.jpg
+        (original creator unknown; credited to its source as found).
   - The sketchy heart health icons (assets/sprites/heart_full.svg,
     heart_empty.svg) were generated procedurally with rough.js, a
     deterministic geometry library — NOT generative AI. The generator

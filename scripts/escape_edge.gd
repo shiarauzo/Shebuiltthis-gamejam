@@ -35,12 +35,7 @@ func _on_body_entered(body: Node) -> void:
 		reached.emit()
 
 func _draw() -> void:
-	if not active:
-		return
-	var r: Rect2 = Game.sheet_rect
-	var x := r.position.x + r.size.x
-	# Draw in local space (the node sits at the edge center, so subtract `position`).
-	for i in range(8):
-		var a := 0.42 - i * 0.045
-		draw_rect(Rect2(Vector2(x - 40 + i * 5, r.position.y) - position, Vector2(6, r.size.y)), Color(0.30, 0.90, 0.42, a), true)
-	draw_line(Vector2(x, r.position.y) - position, Vector2(x, r.position.y + r.size.y) - position, Color(0.20, 0.80, 0.32, 0.95), 3.0)
+	# The edge is intentionally invisible now — the doodle discovers that the path
+	# continues (a page-1 hint nudges them right). Kept as a node so the win
+	# collision still works if ever wired up.
+	pass
