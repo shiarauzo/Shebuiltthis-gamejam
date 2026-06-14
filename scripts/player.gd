@@ -1,7 +1,8 @@
 extends CharacterBody2D
 class_name Player
-## The awakened stick figure. Top-down movement (WASD + arrows), 3 lives.
-## Health is shown by the sketchy hearts HUD (game.gd) plus the figure fading out.
+## The awakened doodle. Top-down movement (WASD + arrows), 3 lives.
+## Drawn as a hand-made run animation (assets/sprites/doodle_run); health is
+## shown by the sketchy hearts HUD (game.gd) plus the doodle fading out.
 
 signal died
 signal health_changed(health: int)
@@ -9,7 +10,8 @@ signal health_changed(health: int)
 const SPEED := 200.0
 const MAX_HEALTH := 3
 const IFRAME_TIME := 1.2
-const RADIUS := 12.0
+const RADIUS := 15.0
+const OBSTACLE_LAYER := 2  # the decorative page doodles the player bumps into
 
 var health := MAX_HEALTH
 var invincible := false
@@ -20,18 +22,37 @@ var _focused := true
 var _touching := false
 var _touch_target := Vector2.ZERO
 var _dead := false
+var _sprite: AnimatedSprite2D
 
 func _ready() -> void:
 	add_to_group("player")
-	Game.boil_tick.connect(queue_redraw)
 	z_index = 5
 	collision_layer = 1
-	collision_mask = 0
+	collision_mask = OBSTACLE_LAYER  # bump into the page's decorative doodles
 	var cs := CollisionShape2D.new()
 	var shape := CircleShape2D.new()
 	shape.radius = RADIUS
 	cs.shape = shape
 	add_child(cs)
+	_build_sprite()
+
+func _build_sprite() -> void:
+	var frames := SpriteFrames.new()
+	if frames.has_animation("default"):
+		frames.remove_animation("default")
+	frames.add_animation("run")
+	frames.set_animation_loop("run", true)
+	frames.set_animation_speed("run", 14.0)
+	for i in range(7):
+		var tex := load("res://assets/sprites/doodle_run/run_%d.png" % i) as Texture2D
+		if tex:
+			frames.add_frame("run", tex)
+	_sprite = AnimatedSprite2D.new()
+	_sprite.sprite_frames = frames
+	_sprite.animation = "run"
+	_sprite.scale = Vector2(0.23, 0.23)  # 256px art -> ~59px doodle
+	_sprite.play("run")
+	add_child(_sprite)
 
 func _notification(what: int) -> void:
 	# When the tab/canvas loses focus the browser stops sending keyup, so keys
@@ -73,6 +94,18 @@ func _physics_process(delta: float) -> void:
 	velocity = dir.normalized() * SPEED * speed_mult
 	move_and_slide()
 
+	# Animate the doodle: run while moving, settle on a still pose otherwise,
+	# and face the way it's heading.
+	if _sprite:
+		if velocity.length() > 1.0:
+			if not _sprite.is_playing():
+				_sprite.play("run")
+			if absf(velocity.x) > 0.1:
+				_sprite.flip_h = velocity.x < 0.0
+		elif _sprite.is_playing():
+			_sprite.stop()
+			_sprite.frame = 0
+
 	# Clamp to the notebook page.
 	var r: Rect2 = Game.sheet_rect
 	global_position.x = clampf(global_position.x, r.position.x + RADIUS, r.position.x + r.size.x - RADIUS)
@@ -111,16 +144,3 @@ func take_damage() -> void:
 func _update_fade() -> void:
 	# 3 hp -> 1.0, 2 -> ~0.78, 1 -> ~0.57
 	modulate.a = 0.35 + 0.65 * (float(health) / float(MAX_HEALTH))
-
-func _draw() -> void:
-	var col := Color(0.12, 0.12, 0.18)
-	# Head as a boiled ring (hand-drawn wobble).
-	var head := PackedVector2Array()
-	for i in range(11):
-		var a := i * TAU / 10.0
-		head.append(Game.boil_jitter(Vector2(0, -14) + Vector2(cos(a), sin(a)) * 7.0))
-	draw_polyline(head, col, 2.0)
-	draw_line(Game.boil_jitter(Vector2(0, -7)), Game.boil_jitter(Vector2(0, 10)), col, 2.0)    # body
-	draw_line(Game.boil_jitter(Vector2(-9, -1)), Game.boil_jitter(Vector2(9, -1)), col, 2.0)   # arms
-	draw_line(Game.boil_jitter(Vector2(0, 10)), Game.boil_jitter(Vector2(-8, 22)), col, 2.0)   # left leg
-	draw_line(Game.boil_jitter(Vector2(0, 10)), Game.boil_jitter(Vector2(8, 22)), col, 2.0)    # right leg

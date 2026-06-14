@@ -32,7 +32,7 @@ sleep 1
 
 num()    { agent-browser eval "(window.__AWAKE||{}).$1 ?? 0" 2>/dev/null | grep -oE '[0-9]+' | tail -1; }
 bool()   { agent-browser eval "(window.__AWAKE||{}).$1 === true" 2>/dev/null | grep -oE 'true|false' | tail -1; }
-sstate() { agent-browser eval "(window.__AWAKE||{}).state || 'none'" 2>/dev/null | grep -oE 'intro|play|flip|ending|done|none' | tail -1; }
+sstate() { agent-browser eval "(window.__AWAKE||{}).state || 'none'" 2>/dev/null | grep -oE 'opening|intro|play|flip|ending|done|none' | tail -1; }
 
 start_game() {
   agent-browser open "$URL" >/dev/null 2>&1
@@ -76,17 +76,29 @@ echo "[e2e] scenario 1: max_page=$max_page ended won=${won:-?}"
 [ "$max_page" -ge 5 ] 2>/dev/null && ok "advanced through all 5 pages" || no "did not reach page 5 (max=$max_page)"
 [ "$won" = "true" ] && ok "runs out of the notebook and wins" || no "win failed (won=${won:-?})"
 
-# ---- scenario 2: stand still -> eraser catches -> lose -------------------
-echo "[e2e] --- scenario 2: lose by standing still ---"
+# ---- scenario 2: reach a threat page, then stand still -> lose -----------
+# Threats are now incremental (pencil page 2, eraser page 3), so page 1 is safe.
+# Advance to page 3 where the eraser appears, then stop and let it drain us.
+echo "[e2e] --- scenario 2: reach the eraser page, then stand still ---"
 start_game
 for i in $(seq 1 30); do [ "$(sstate)" = "play" ] && break; sleep 0.5; done
+agent-browser mouse move 1245 360 >/dev/null 2>&1
+agent-browser mouse down >/dev/null 2>&1
+for i in $(seq 1 60); do
+  agent-browser mouse move 1245 360 >/dev/null 2>&1
+  p=$(num page); p=${p:-1}
+  [ "$p" -ge 3 ] 2>/dev/null && break
+  sleep 0.3
+done
+agent-browser mouse up >/dev/null 2>&1   # release: the doodle stands still on page 3
+echo "[e2e] scenario 2: reached page $(num page), standing still"
 won2=""
 for i in $(seq 1 40); do
   if [ "$(bool ended)" = "true" ]; then won2=$(bool won); break; fi
   sleep 0.5
 done
 echo "[e2e] scenario 2: ended won=${won2:-?}"
-[ "$won2" = "false" ] && ok "standing still loses (eraser/ink)" || no "expected a loss (won=${won2:-?})"
+[ "$won2" = "false" ] && ok "standing still on a threat page loses" || no "expected a loss (won=${won2:-?})"
 
 # ---- page errors --------------------------------------------------------
 errs=$(agent-browser errors 2>/dev/null | grep -iE "error|exception|uncaught" | grep -viE "no errors|0 error" | head -5)

@@ -15,7 +15,10 @@ signal game_over(won: bool)
 
 @export var total_pages := 5
 
-var state := "intro"        # intro | play | flip | ending
+const PAPER := Color(0.99, 0.99, 0.98)   # graph-paper sheet colour
+const COVER := Color(0.22, 0.45, 0.50)   # closed-notebook cover colour
+
+var state := "opening"      # opening | intro | play | flip | ending
 var page := 1
 var survival_time := 0.0
 var ended := false
@@ -29,6 +32,7 @@ var notebook: Notebook
 var edge_glow: EscapeEdge
 var hud_label: Label
 var dialogue_label: Label
+var dialogue_box: PanelContainer
 
 # Sketchy heart health display (procedural rough.js SVGs).
 var heart_full_tex: Texture2D
@@ -74,17 +78,48 @@ func _ready() -> void:
 	player.died.connect(_on_player_died)
 	player.health_changed.connect(_on_player_hit)
 	player.set_physics_process(false)  # not controllable until play begins
+	player.modulate.a = 0.0  # hidden until the notebook opens and it's drawn in
 	if _fast:
 		player.speed_mult = 3.0  # e2e: traverse pages quickly
 
 	pencil = Pencil.new()
 	pencil.ink_parent = self
 	pencil.global_position = Vector2(r.position.x + r.size.x * 0.5, r.position.y + 24.0)
-	pencil.set_process(false)  # the pencil only starts scribbling once we play
 	add_child(pencil)
+	pencil.set_process(false)  # inert until it's introduced on page 2 (also gated by target)
 
 	_build_hud()
 	_build_fx()
+	# Headless tests skip the closed-book cinematic and go straight to the intro.
+	if Game.testing:
+		_run_intro()
+	else:
+		_run_open()
+
+# --- Opening: the closed notebook swings open ----------------------------
+
+func _run_open() -> void:
+	state = "opening"
+	Game.web_report({"state": state, "page": page, "ended": false, "won": false})
+	_ensure_flip3d()
+	# Dress the turning sheet as the closed cover, laid flat over the page.
+	flip_mat.albedo_color = Color(COVER.r, COVER.g, COVER.b, 1.0)
+	flip_mat.emission = COVER
+	flip_pivot.rotation.y = 0.0
+	flip3d_layer.visible = true
+	await get_tree().create_timer(0.3 if _fast else 0.9).timeout
+	if state != "opening":
+		return
+	# The cover swings open around the spine, revealing the first page.
+	var dur := 0.25 if _fast else 0.9
+	var tw := create_tween()
+	tw.tween_property(flip_pivot, "rotation:y", -PI, dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.parallel().tween_method(_set_flip_alpha, 1.0, 0.0, dur * 0.4).set_delay(dur * 0.6)
+	await tw.finished
+	flip3d_layer.visible = false
+	# Restore the paper colour for subsequent page turns.
+	flip_mat.albedo_color = Color(PAPER.r, PAPER.g, PAPER.b, 0.0)
+	flip_mat.emission = PAPER
 	_run_intro()
 
 # --- Intro ---------------------------------------------------------------
@@ -106,7 +141,7 @@ func _run_intro() -> void:
 	await get_tree().create_timer(0.6 if _fast else 2.0).timeout
 	if state != "intro":
 		return
-	_say("wait— I have to erase this!")
+	_say("...let's see what's out here →")
 	await get_tree().create_timer(0.5 if _fast else 1.5).timeout
 	if state != "intro":
 		return
@@ -118,10 +153,19 @@ func _begin_play() -> void:
 	_clear_dialogue()
 	state = "play"
 	player.set_physics_process(true)
-	pencil.target = player
-	pencil.set_process(true)
-	_spawn_eraser()
+	# Page 1 is a calm explore: no pencil, no eraser yet. Threats are introduced
+	# page by page as the doodle advances (see _introduce_threats).
 	edge_glow.open()
+
+## Bring in the hazards gradually: the pencil from page 2, the eraser from page 3.
+func _introduce_threats() -> void:
+	if page >= 2 and pencil.target == null:
+		pencil.target = player  # a null target keeps the pencil inert on page 1
+		pencil.set_process(true)
+		_say("uh— a pencil! keep moving →")
+	if page >= 3 and (eraser == null or not is_instance_valid(eraser)):
+		_spawn_eraser()
+		_say("the eraser!! run!")
 
 func _spawn_eraser() -> void:
 	var r: Rect2 = Game.sheet_rect
@@ -222,6 +266,7 @@ func _play_flip() -> void:
 	player.invincible = false
 	player.set_physics_process(true)
 	state = "play"
+	_introduce_threats()  # pencil from page 2, eraser from page 3
 
 # Lazily build the 3D page (a lit QuadMesh hinged at the spine, rendered into a
 # transparent SubViewport overlaid on the 2D game).
@@ -285,14 +330,14 @@ func _ensure_flip3d() -> void:
 	mesh.mesh = quad
 	mesh.position = Vector3(pw * 0.5, 0.0, 0.0)  # left edge rests on the pivot
 	flip_mat = StandardMaterial3D.new()
-	flip_mat.albedo_color = Color(0.97, 0.96, 0.88, 0.0)
+	flip_mat.albedo_color = Color(0.99, 0.99, 0.98, 0.0)
 	flip_mat.cull_mode = BaseMaterial3D.CULL_DISABLED  # both faces of the page
 	flip_mat.roughness = 0.95
 	flip_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	# Faint self-illumination so the paper always reads cream, with the lights
 	# adding the directional shading that makes the turn feel 3D.
 	flip_mat.emission_enabled = true
-	flip_mat.emission = Color(0.97, 0.96, 0.88)
+	flip_mat.emission = Color(0.99, 0.99, 0.98)
 	flip_mat.emission_energy_multiplier = 0.45
 	mesh.material_override = flip_mat
 	flip_pivot.add_child(mesh)
@@ -370,13 +415,13 @@ func _clear_ink() -> void:
 
 func _say(text: String) -> void:
 	dialogue_label.text = text
-	dialogue_label.modulate.a = 0.0
-	dialogue_label.visible = true
+	dialogue_box.modulate.a = 0.0
+	dialogue_box.visible = true
 	var tw := create_tween()
-	tw.tween_property(dialogue_label, "modulate:a", 1.0, 0.25)
+	tw.tween_property(dialogue_box, "modulate:a", 1.0, 0.25)
 
 func _clear_dialogue() -> void:
-	dialogue_label.visible = false
+	dialogue_box.visible = false
 
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
@@ -388,13 +433,27 @@ func _build_hud() -> void:
 	hud_label.add_theme_color_override("font_color", Color(0.15, 0.15, 0.2))
 	layer.add_child(hud_label)
 
+	# Dialogue shown in a little speech bubble so it reads as someone talking.
+	var bubble := StyleBoxFlat.new()
+	bubble.bg_color = Color(0.99, 0.98, 0.92, 0.97)
+	bubble.border_color = Color(0.18, 0.20, 0.28)
+	bubble.set_border_width_all(3)
+	bubble.set_corner_radius_all(14)
+	bubble.set_content_margin_all(14)
+	bubble.shadow_color = Color(0, 0, 0, 0.18)
+	bubble.shadow_size = 5
+	bubble.shadow_offset = Vector2(2, 3)
+	dialogue_box = PanelContainer.new()
+	dialogue_box.add_theme_stylebox_override("panel", bubble)
+	dialogue_box.position = Vector2(360, 26)
+	dialogue_box.rotation_degrees = -3.0
+	dialogue_box.visible = false
+	layer.add_child(dialogue_box)
+
 	dialogue_label = Label.new()
-	dialogue_label.position = Vector2(360, 30)
-	dialogue_label.add_theme_font_size_override("font_size", 30)
-	dialogue_label.add_theme_color_override("font_color", Color(0.2, 0.25, 0.6))
-	dialogue_label.rotation_degrees = -3.0
-	dialogue_label.visible = false
-	layer.add_child(dialogue_label)
+	dialogue_label.add_theme_font_size_override("font_size", 28)
+	dialogue_label.add_theme_color_override("font_color", Color(0.16, 0.18, 0.30))
+	dialogue_box.add_child(dialogue_label)
 
 	_build_hearts(layer)
 

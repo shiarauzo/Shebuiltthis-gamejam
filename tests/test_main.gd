@@ -23,7 +23,9 @@ func _ready() -> void:
 	await _test_damage_and_iframes()
 	await _test_hearts_track_health()
 	await _test_death()
+	await _test_player_collides_with_doodles()
 	await _test_intro_then_play()
+	await _test_threats_are_incremental()
 	await _test_pencil_draws_ink()
 	await _test_ink_cap()
 	await _test_ink_damages_standing_player()
@@ -172,16 +174,50 @@ func _test_intro_then_play() -> void:
 	g._begin_play()
 	await get_tree().physics_frame
 	_check("begins play on input", g.state == "play", "(state=%s)" % g.state)
-	_check("eraser spawned at play", g.eraser != null and is_instance_valid(g.eraser))
+	# Page 1 is a calm explore: no pencil, no eraser yet.
+	_check("page 1 has no eraser yet", g.eraser == null)
+	_check("page 1 pencil has no target yet", g.pencil.target == null)
+	await _free_game(g)
+
+func _test_player_collides_with_doodles() -> void:
+	_log("[player bumps decorative doodles]")
+	var g = await _make_game()
+	g._begin_play()
+	g.player.set_physics_process(false)  # drive movement manually
+	var r: Rect2 = Game.sheet_rect
+	var star := r.position + Vector2(240, 120)  # a known obstacle (see notebook.gd)
+	g.player.global_position = star - Vector2(60, 0)
+	for i in range(40):
+		g.player.velocity = Vector2(300, 0)
+		g.player.move_and_slide()
+		await get_tree().physics_frame
+	_check("blocked by the star doodle (can't walk through)", g.player.global_position.x < star.x,
+		"(px=%.0f starx=%.0f)" % [g.player.global_position.x, star.x])
+	await _free_game(g)
+
+func _test_threats_are_incremental() -> void:
+	_log("[threats are incremental]")
+	var g = await _make_game()
+	g._begin_play()
+	_check("page 1: no pencil", g.pencil.target == null)
+	_check("page 1: no eraser", g.eraser == null)
+	g.page = 2
+	g._introduce_threats()
+	_check("page 2: pencil scribbling", g.pencil.target != null)
+	_check("page 2: still no eraser", g.eraser == null)
+	g.page = 3
+	g._introduce_threats()
+	_check("page 3: eraser appears", g.eraser != null and is_instance_valid(g.eraser))
 	await _free_game(g)
 
 func _test_pencil_draws_ink() -> void:
-	_log("[pencil draws ink]")
+	_log("[pencil draws ink from page 2]")
 	var g = await _make_game()
 	g._begin_play()
-	await get_tree().create_timer(3.8).timeout
-	var ink_count := get_tree().get_nodes_in_group("ink").size()
-	_check("pencil produced ink", ink_count >= 1, "(ink=%d)" % ink_count)
+	g.page = 2
+	g._introduce_threats()  # the pencil starts scribbling on page 2
+	var drew := await _wait_until(func(): return get_tree().get_nodes_in_group("ink").size() >= 1, 6.0)
+	_check("pencil produced ink", drew, "(ink=%d)" % get_tree().get_nodes_in_group("ink").size())
 	await _free_game(g)
 
 func _test_ink_cap() -> void:
@@ -217,6 +253,8 @@ func _test_eraser_spawn_grace_and_catch() -> void:
 	_log("[eraser spawn grace + contact damage]")
 	var g = await _make_game()
 	g._begin_play()
+	g.page = 3
+	g._introduce_threats()  # the eraser appears on page 3
 	var player = g.player
 	await get_tree().physics_frame
 	_check("eraser exists", g.eraser != null)

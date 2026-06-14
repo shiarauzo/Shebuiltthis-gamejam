@@ -9,11 +9,13 @@ Game design, code, and all visuals
   - Shiara Arauzo
 
 Art / Visuals
-  - All graphics are drawn procedurally in-engine (GDScript _draw):
-    the stick figure, pencil, eraser, ink strokes, notebook paper,
-    ruled lines, and doodle decorations. These are placeholder art
-    created for this jam. (If replaced with hand-drawn art later,
-    that art will be created during the jam window and credited here.)
+  - The player doodle is HAND-DRAWN by Shiara Arauzo: a 7-frame run
+    animation drawn during the jam (source frames in doodle-run/). They
+    are mechanically recolored to the game's ink tone and background-keyed
+    by tools/process_doodle.gd into assets/sprites/doodle_run/ (no AI).
+  - The rest of the graphics are drawn procedurally in-engine (GDScript
+    _draw): the pencil, eraser, ink strokes, graph-paper sheet + grid,
+    and the decorative page doodles. Created for this jam.
   - The sketchy heart health icons (assets/sprites/heart_full.svg,
     heart_empty.svg) were generated procedurally with rough.js, a
     deterministic geometry library — NOT generative AI. The generator

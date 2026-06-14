@@ -1,11 +1,44 @@
 extends Node2D
 class_name Notebook
-## Placeholder notebook page drawn procedurally (paper, ruled lines, margin,
-## a few static doodles). Every stroke "boils" via Game.boil_jitter so the whole
-## page wobbles like a living doodle. Replace with hand-drawn art later if desired.
+## Graph-paper notebook page drawn procedurally (white sheet, light-blue square
+## grid, a few static doodles). Every stroke "boils" via Game.boil_jitter so the
+## whole page wobbles like a living doodle.
+
+const GRID := 28.0  # square size of the graph-paper grid
+const OBSTACLE_LAYER := 2  # the doodle player bumps into these (matches Player.OBSTACLE_LAYER)
 
 func _ready() -> void:
 	Game.boil_tick.connect(queue_redraw)
+	_build_obstacles()
+
+## Solid colliders under the decorative doodles so the player bumps them
+## instead of walking over them. Positions mirror the ones drawn in _draw().
+func _build_obstacles() -> void:
+	var r: Rect2 = Game.sheet_rect
+	_add_circle(r.position + Vector2(240, 120), 20.0)                       # star
+	_add_circle(r.position + Vector2(r.size.x - 180, 160), 16.0)           # spiral
+	_add_circle(r.position + Vector2(360, r.size.y - 120), 16.0)           # cloud
+	_add_rect(r.position + Vector2(r.size.x - 320 + 72, r.size.y - 150), Vector2(150, 22))  # squiggle
+
+func _add_obstacle(shape: Shape2D, pos: Vector2) -> void:
+	var body := StaticBody2D.new()
+	body.position = pos
+	body.collision_layer = OBSTACLE_LAYER
+	body.collision_mask = 0
+	var cs := CollisionShape2D.new()
+	cs.shape = shape
+	body.add_child(cs)
+	add_child(body)
+
+func _add_circle(pos: Vector2, radius: float) -> void:
+	var sh := CircleShape2D.new()
+	sh.radius = radius
+	_add_obstacle(sh, pos)
+
+func _add_rect(pos: Vector2, size: Vector2) -> void:
+	var sh := RectangleShape2D.new()
+	sh.size = size
+	_add_obstacle(sh, pos)
 
 func _j(p: Vector2, amp := 1.3) -> Vector2:
 	return Game.boil_jitter(p, amp)
@@ -13,20 +46,19 @@ func _j(p: Vector2, amp := 1.3) -> Vector2:
 func _draw() -> void:
 	var r: Rect2 = Game.sheet_rect
 
-	# Paper (solid fill stays stable so text/UI read cleanly).
-	draw_rect(r, Color(0.98, 0.97, 0.90), true)
+	# Paper (solid white fill stays stable so text/UI read cleanly).
+	draw_rect(r, Color(0.99, 0.99, 0.98), true)
 
-	# Ruled horizontal lines (gently boiled).
-	var y := r.position.y + 44.0
-	while y < r.position.y + r.size.y - 8.0:
-		draw_line(_j(Vector2(r.position.x + 6, y), 1.0), _j(Vector2(r.position.x + r.size.x - 6, y), 1.0),
-			Color(0.62, 0.74, 0.90, 0.55), 1.0)
-		y += 34.0
-
-	# Red margin line.
-	var mx := r.position.x + 72.0
-	draw_line(_j(Vector2(mx, r.position.y)), _j(Vector2(mx, r.position.y + r.size.y)),
-		Color(0.90, 0.42, 0.46, 0.65), 2.0)
+	# Graph-paper grid: light-blue squares, gently boiled both ways.
+	var grid_col := Color(0.55, 0.78, 0.90, 0.55)
+	var x := r.position.x + GRID
+	while x < r.position.x + r.size.x - 2.0:
+		draw_line(_j(Vector2(x, r.position.y + 4), 1.0), _j(Vector2(x, r.position.y + r.size.y - 4), 1.0), grid_col, 1.0)
+		x += GRID
+	var y := r.position.y + GRID
+	while y < r.position.y + r.size.y - 2.0:
+		draw_line(_j(Vector2(r.position.x + 4, y), 1.0), _j(Vector2(r.position.x + r.size.x - 4, y), 1.0), grid_col, 1.0)
+		y += GRID
 
 	# Page border as a boiled rectangle outline.
 	var border := PackedVector2Array([
