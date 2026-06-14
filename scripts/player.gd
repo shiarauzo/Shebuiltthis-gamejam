@@ -15,6 +15,7 @@ var health := MAX_HEALTH
 var invincible := false
 var _iframe_t := 0.0
 var _blink_t := 0.0
+var _focused := true
 
 func _ready() -> void:
 	add_to_group("player")
@@ -27,16 +28,26 @@ func _ready() -> void:
 	cs.shape = shape
 	add_child(cs)
 
+func _notification(what: int) -> void:
+	# When the tab/canvas loses focus the browser stops sending keyup, so keys
+	# would "stick". Treat focus-out as all-keys-released.
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		_focused = false
+		velocity = Vector2.ZERO
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
+		_focused = true
+
 func _physics_process(delta: float) -> void:
 	var dir := Vector2.ZERO
-	if Input.is_physical_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
-		dir.y -= 1.0
-	if Input.is_physical_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
-		dir.y += 1.0
-	if Input.is_physical_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
-		dir.x -= 1.0
-	if Input.is_physical_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
-		dir.x += 1.0
+	if _focused:
+		if Input.is_physical_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+			dir.y -= 1.0
+		if Input.is_physical_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+			dir.y += 1.0
+		if Input.is_physical_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+			dir.x -= 1.0
+		if Input.is_physical_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+			dir.x += 1.0
 
 	velocity = dir.normalized() * SPEED
 	move_and_slide()

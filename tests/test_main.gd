@@ -18,6 +18,7 @@ func _ready() -> void:
 	_log("==== TEST RUN START ====")
 	await get_tree().process_frame
 	await _test_movement()
+	await _test_focus_out_stops_movement()
 	await _test_damage_and_iframes()
 	await _test_death_after_three_hits()
 	await _test_pencil_draws_ink()
@@ -89,6 +90,31 @@ func _test_movement() -> void:
 
 	var moved: float = player.global_position.x - start_x
 	_check("moves right on D", moved > 5.0, "(dx=%.1f)" % moved)
+	await _free_game(g)
+
+func _test_focus_out_stops_movement() -> void:
+	_log("[focus-out stops movement]")
+	var g = await _make_game()
+	var player = g.player
+	# Hold D, then drop focus — the player must not drift.
+	var ev := InputEventKey.new()
+	ev.physical_keycode = KEY_D
+	ev.pressed = true
+	Input.parse_input_event(ev)
+	Input.flush_buffered_events()
+	player._notification(player.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	var x0: float = player.global_position.x
+	for i in range(15):
+		await get_tree().physics_frame
+	var drift: float = absf(player.global_position.x - x0)
+	_check("no drift while unfocused", drift < 0.5, "(drift=%.2f)" % drift)
+	# Release + refocus to not leak state into later tests.
+	var rel := InputEventKey.new()
+	rel.physical_keycode = KEY_D
+	rel.pressed = false
+	Input.parse_input_event(rel)
+	Input.flush_buffered_events()
+	player._notification(player.NOTIFICATION_APPLICATION_FOCUS_IN)
 	await _free_game(g)
 
 func _test_damage_and_iframes() -> void:
