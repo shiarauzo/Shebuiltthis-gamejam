@@ -21,6 +21,7 @@ func _ready() -> void:
 	_log("==== TEST RUN START ====")
 	await get_tree().process_frame
 	await _test_movement()
+	await _test_touch_movement()
 	await _test_focus_out_stops_movement()
 	await _test_damage_and_iframes()
 	await _test_death_after_three_hits()
@@ -95,6 +96,21 @@ func _test_movement() -> void:
 
 	var moved: float = player.global_position.x - start_x
 	_check("moves right on D", moved > 5.0, "(dx=%.1f)" % moved)
+	await _free_game(g)
+
+func _test_touch_movement() -> void:
+	_log("[touch movement]")
+	var g = await _make_game()
+	var player = g.player
+	var x0: float = player.global_position.x
+	# Simulate a touch to the right of the player.
+	player._touching = true
+	player._touch_target = player.global_position + Vector2(200, 0)
+	for i in range(15):
+		await get_tree().physics_frame
+	var moved: float = player.global_position.x - x0
+	player._touching = false
+	_check("moves toward touch point", moved > 5.0, "(dx=%.1f)" % moved)
 	await _free_game(g)
 
 func _test_focus_out_stops_movement() -> void:
