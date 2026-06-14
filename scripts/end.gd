@@ -63,19 +63,19 @@ func _ready() -> void:
 	var vh := vp.y
 
 	var left := ColorRect.new()
-	left.color = Color(0.46, 0.29, 0.20)
+	left.color = Color(0.07, 0.07, 0.09)
 	left.size = Vector2(vw / 2.0, vh)
 	left.position = Vector2(-vw / 2.0, 0)
 	add_child(left)
 
 	var right := ColorRect.new()
-	right.color = Color(0.42, 0.26, 0.18)
+	right.color = Color(0.05, 0.05, 0.07)
 	right.size = Vector2(vw / 2.0, vh)
 	right.position = Vector2(vw, 0)
 	add_child(right)
 
 	var spine := ColorRect.new()
-	spine.color = Color(0.30, 0.18, 0.12)
+	spine.color = Color(0.0, 0.0, 0.0)
 	spine.size = Vector2(10, vh)
 	spine.position = Vector2(vw / 2.0 - 5.0, 0)
 	spine.modulate.a = 0.0

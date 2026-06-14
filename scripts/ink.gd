@@ -14,14 +14,22 @@ func setup(a: Vector2, b: Vector2) -> void:
 	collision_mask = 1
 	mid = (a + b) * 0.5
 
+	# The pencil scribbles a little doodle (a wavy squiggle) rather than a plain
+	# straight line, tapered at the ends so it still spans a..b.
 	var line := Line2D.new()
-	line.width = 5.0
+	line.width = 4.0
 	line.default_color = Color(0.13, 0.18, 0.55)  # ink blue
 	line.joint_mode = Line2D.LINE_JOINT_ROUND
 	line.begin_cap_mode = Line2D.LINE_CAP_ROUND
 	line.end_cap_mode = Line2D.LINE_CAP_ROUND
-	line.add_point(a)
-	line.add_point(b)
+	var dir := b - a
+	var perp := (dir.normalized().rotated(PI / 2.0)) if dir.length() > 0.1 else Vector2.UP
+	var seg := 18
+	for i in range(seg + 1):
+		var t := float(i) / float(seg)
+		var envelope := sin(t * PI)  # 0 at the ends, 1 in the middle
+		var wob := sin(t * TAU * 2.5) * 15.0 * envelope
+		line.add_point(a.lerp(b, t) + perp * wob)
 	add_child(line)
 
 	var cs := CollisionShape2D.new()

@@ -52,7 +52,7 @@ func _build_sprite() -> void:
 	_sprite = AnimatedSprite2D.new()
 	_sprite.sprite_frames = frames
 	_sprite.animation = "run"
-	_sprite.scale = Vector2(0.23, 0.23)  # 256px art -> ~59px doodle
+	_sprite.scale = Vector2(0.28, 0.28)  # 256px art -> ~72px doodle
 	_sprite.play("run")
 	add_child(_sprite)
 

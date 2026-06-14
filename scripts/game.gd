@@ -338,12 +338,10 @@ func _ensure_flip3d() -> void:
 	flip_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	vpc.add_child(flip_vp)
 
-	# Page sized to the notebook sheet (not the whole frame) so its edge is
-	# visibly seen sweeping across and revealing the next sheet behind it.
-	# Camera maps ~12.21 x 6.87 units to the full viewport; the sheet is
-	# 1184x624 of 1280x720, hence these dimensions.
-	var pw := 11.3
-	var ph := 5.95
+	# The page now fills the whole screen (camera maps ~12.21 x 6.87 units to the
+	# viewport); a touch larger so it fully covers as it turns.
+	var pw := 12.7
+	var ph := 7.15
 
 	var cam3d := Camera3D.new()
 	cam3d.projection = Camera3D.PROJECTION_PERSPECTIVE
@@ -509,7 +507,7 @@ func _build_hearts(layer: CanvasLayer) -> void:
 	# Three hearts pinned to the top-right of the page.
 	var box := HBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
-	box.position = Vector2(Game.sheet_rect.position.x + Game.sheet_rect.size.x - 150.0, 10.0)
+	box.position = Vector2(Game.sheet_rect.position.x + Game.sheet_rect.size.x - 170.0, 18.0)
 	box.rotation_degrees = -2.0  # slight hand-pinned tilt
 	layer.add_child(box)
 

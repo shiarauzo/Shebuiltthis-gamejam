@@ -25,8 +25,9 @@ func _ready() -> void:
 	# 500px art; offset the sprite so that tip lands on the action point (origin).
 	var spr := Sprite2D.new()
 	spr.texture = load("res://assets/pencil.png")
-	spr.scale = Vector2(0.34, 0.34)
-	spr.position = Vector2(140, -150) * 0.34
+	var s := 0.6
+	spr.scale = Vector2(s, s)
+	spr.position = Vector2(140, -150) * s  # keep the drawn tip on the action point
 	add_child(spr)
 
 func _process(delta: float) -> void:

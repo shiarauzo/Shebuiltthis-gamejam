@@ -1,0 +1,13 @@
+{
+  "name": "title-gen",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Generates the Excalidraw-style sketchy title card with rough.js (no AI).",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node generate.js"
+  },
+  "dependencies": {
+    "roughjs": "^4.6.6"
+  }
+}
