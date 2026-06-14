@@ -45,6 +45,11 @@ func _process(delta: float) -> void:
 			if is_instance_valid(target) and _commit_pos.distance_to(target.global_position) < 28.0:
 				var off := randf() * TAU
 				_commit_pos = target.global_position + Vector2(cos(off), sin(off)) * 60.0
+			# Keep the whole stroke on the page (it extends STROKE_LEN/2 each way).
+			var r2: Rect2 = Game.sheet_rect
+			var inset := STROKE_LEN * 0.5
+			_commit_pos.x = clampf(_commit_pos.x, r2.position.x + inset, r2.position.x + r2.size.x - inset)
+			_commit_pos.y = clampf(_commit_pos.y, r2.position.y + inset, r2.position.y + r2.size.y - inset)
 			_stroke_angle = randf() * TAU
 	else:  # commit
 		_t += delta
