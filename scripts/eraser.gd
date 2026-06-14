@@ -15,7 +15,6 @@ var target: Node2D
 var _armed := false
 
 func _ready() -> void:
-	Game.boil_tick.connect(queue_redraw)
 	z_index = 6
 	monitoring = true
 	collision_layer = 0
@@ -25,6 +24,11 @@ func _ready() -> void:
 	rect.size = Vector2(50, 66)
 	cs.shape = rect
 	add_child(cs)
+	# Hand-drawn eraser doodle (Shiara). 256px art scaled to the hitbox size.
+	var spr := Sprite2D.new()
+	spr.texture = load("res://assets/eraser.png")
+	spr.scale = Vector2(0.34, 0.34)
+	add_child(spr)
 	body_entered.connect(_on_body_entered)
 	get_tree().create_timer(SPAWN_GRACE).timeout.connect(_arm)
 
@@ -71,14 +75,3 @@ func _physics_process(delta: float) -> void:
 func _on_body_entered(body: Node) -> void:
 	if _armed and body.is_in_group("player"):
 		caught_player.emit()
-
-func _draw() -> void:
-	# Pink eraser body with a darker felt base + boiled scribbly outline.
-	draw_rect(Rect2(-25, -33, 50, 66), Color(0.95, 0.55, 0.66), true)
-	draw_rect(Rect2(-25, 16, 50, 17), Color(0.56, 0.40, 0.76), true)
-	var o := PackedVector2Array([
-		Game.boil_jitter(Vector2(-25, -33)), Game.boil_jitter(Vector2(25, -33)),
-		Game.boil_jitter(Vector2(25, 33)), Game.boil_jitter(Vector2(-25, 33)),
-		Game.boil_jitter(Vector2(-25, -33))])
-	draw_polyline(o, Color(0.30, 0.18, 0.30), 1.8)
-	draw_line(Game.boil_jitter(Vector2(-25, -18)), Game.boil_jitter(Vector2(25, -18)), Color(0.85, 0.45, 0.56), 1.5)

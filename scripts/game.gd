@@ -87,6 +87,7 @@ func _ready() -> void:
 	pencil.global_position = Vector2(r.position.x + r.size.x * 0.5, r.position.y + 24.0)
 	add_child(pencil)
 	pencil.set_process(false)  # inert until it's introduced on page 2 (also gated by target)
+	pencil.visible = false     # hidden until it appears on page 2
 
 	_build_hud()
 	_build_fx()
@@ -162,6 +163,7 @@ func _introduce_threats() -> void:
 	if page >= 2 and pencil.target == null:
 		pencil.target = player  # a null target keeps the pencil inert on page 1
 		pencil.set_process(true)
+		pencil.visible = true
 		_say("uh— a pencil! keep moving →")
 	if page >= 3 and (eraser == null or not is_instance_valid(eraser)):
 		_spawn_eraser()

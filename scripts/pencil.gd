@@ -21,6 +21,13 @@ var _stroke_angle := 0.0
 
 func _ready() -> void:
 	z_index = 10
+	# Hand-drawn pencil doodle (Shiara). Its drawn tip is at the lower-left of the
+	# 500px art; offset the sprite so that tip lands on the action point (origin).
+	var spr := Sprite2D.new()
+	spr.texture = load("res://assets/pencil.png")
+	spr.scale = Vector2(0.34, 0.34)
+	spr.position = Vector2(140, -150) * 0.34
+	add_child(spr)
 
 func _process(delta: float) -> void:
 	if target == null or not is_instance_valid(target):
@@ -75,11 +82,8 @@ func _spawn_ink() -> void:
 			oldest.queue_free()
 
 func _draw() -> void:
-	# Pencil hovering above the page (a yellow shaft + tip), drawn from the marker.
-	draw_line(Game.boil_jitter(Vector2.ZERO), Game.boil_jitter(Vector2(34, -86)), Color(0.86, 0.66, 0.20, 0.85), 7.0)
-	draw_line(Game.boil_jitter(Vector2(34, -86)), Game.boil_jitter(Vector2(46, -112)), Color(0.95, 0.85, 0.6, 0.9), 7.0)
-	draw_circle(Vector2(46, -112), 4.0, Color(0.85, 0.5, 0.25, 0.9))
-
+	# The pencil body is the hand-drawn sprite; here we only draw the marker and
+	# the telegraph preview of the stroke that's about to be inked.
 	if _state == "commit":
 		# Telegraph: faint pulsing preview of the exact stroke that will be inked.
 		var half := Vector2(cos(_stroke_angle), sin(_stroke_angle)) * (STROKE_LEN * 0.5)
