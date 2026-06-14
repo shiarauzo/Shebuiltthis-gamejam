@@ -6,6 +6,7 @@ const VW := 1280.0
 const VH := 720.0
 
 var _can_retry := false
+var _retried := false
 
 func _ready() -> void:
 	var won: bool = Game.won
@@ -104,14 +105,17 @@ func _ready() -> void:
 	add_child(fade)
 	create_tween().tween_property(fade, "color:a", 0.0, 0.3)
 
-	get_tree().create_timer(1.7).timeout.connect(_enable_retry)
+	# Enable retry when the close/open/reveal cinematic actually finishes,
+	# not after a hardcoded delay.
+	tw.finished.connect(_enable_retry)
 
 func _enable_retry() -> void:
 	_can_retry = true
 
 func _input(event: InputEvent) -> void:
-	if not _can_retry:
+	if not _can_retry or _retried:
 		return
 	if (event is InputEventKey and event.pressed and not event.echo) \
 			or (event is InputEventMouseButton and event.pressed):
+		_retried = true  # guard against a double scene-change on key-spam
 		get_tree().change_scene_to_file("res://scenes/game.tscn")
