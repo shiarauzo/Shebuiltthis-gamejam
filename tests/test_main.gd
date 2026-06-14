@@ -64,6 +64,7 @@ func _make_game(trigger := 30.0) -> Node:
 	add_child(g)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	await get_tree().physics_frame  # let collision state settle before queries
 	return g
 
 func _free_game(g: Node) -> void:

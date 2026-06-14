@@ -18,6 +18,7 @@ var _blink_t := 0.0
 var _focused := true
 var _touching := false
 var _touch_target := Vector2.ZERO
+var _dead := false
 
 func _ready() -> void:
 	add_to_group("player")
@@ -85,14 +86,21 @@ func _physics_process(delta: float) -> void:
 			invincible = false
 			visible = true
 
+## The single death path — from running out of health or being caught by the eraser.
+func die() -> void:
+	if _dead:
+		return
+	_dead = true
+	died.emit()
+
 func take_damage() -> void:
-	if invincible:
+	if invincible or _dead:
 		return
 	health -= 1
 	health_changed.emit(health)
 	_update_fade()
 	if health <= 0:
-		died.emit()
+		die()
 		return
 	invincible = true
 	_iframe_t = IFRAME_TIME

@@ -34,7 +34,6 @@ var _shake_dur := 0.0
 var _shake_mag := 0.0
 
 func _ready() -> void:
-	randomize()
 	var r: Rect2 = Game.sheet_rect
 
 	cam = Camera2D.new()
@@ -153,7 +152,7 @@ func _start_phase_two() -> void:
 	eraser.target = player
 	eraser.global_position = _farthest_corner_from(player.global_position)
 	add_child(eraser)
-	eraser.caught_player.connect(_on_player_died)
+	eraser.caught_player.connect(player.die)  # caught -> the doodle dies (single death path)
 	# Dramatic "the eraser woke up" jolt.
 	shake(16.0, 0.5)
 	flash(Color(0.95, 0.55, 0.66), 0.4, 0.5)
