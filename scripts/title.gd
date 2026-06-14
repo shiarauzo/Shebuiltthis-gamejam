@@ -4,6 +4,8 @@ extends Control
 const VW := 1280.0
 const VH := 720.0
 
+var _can_input := false
+
 func _ready() -> void:
 	var bg := ColorRect.new()
 	bg.color = Color(0.98, 0.97, 0.90)
@@ -75,7 +77,12 @@ func _ready() -> void:
 	add_child(fade)
 	create_tween().tween_property(fade, "color:a", 0.0, 0.45)
 
+	# Don't let a stray keypress during the WebGL load skip the title unseen.
+	get_tree().create_timer(0.5).timeout.connect(func(): _can_input = true)
+
 func _input(event: InputEvent) -> void:
+	if not _can_input:
+		return
 	if (event is InputEventKey and event.pressed and not event.echo) \
 			or (event is InputEventMouseButton and event.pressed):
 		get_tree().change_scene_to_file("res://scenes/game.tscn")
