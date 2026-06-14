@@ -7,9 +7,12 @@ const SPEED := 140.0
 const COMMIT_INTERVAL := 2.4
 const FLASH_TIME := 0.9
 const STROKE_LEN := 130.0
+const MAX_INK := 18  # cap live strokes so long runs don't accumulate nodes
 
 var target: Node2D
 var ink_parent: Node
+
+var _strokes: Array[Ink] = []
 
 var _state := "track"  # "track" | "commit"
 var _t := 0.0
@@ -50,6 +53,14 @@ func _spawn_ink() -> void:
 	var ink := Ink.new()
 	ink_parent.add_child(ink)
 	ink.setup(_commit_pos - half, _commit_pos + half)
+
+	# Cap live ink: drop the oldest stroke once over the limit (FIFO).
+	_strokes = _strokes.filter(func(s): return is_instance_valid(s))
+	_strokes.append(ink)
+	while _strokes.size() > MAX_INK:
+		var oldest: Ink = _strokes.pop_front()
+		if is_instance_valid(oldest):
+			oldest.queue_free()
 
 func _draw() -> void:
 	# Pencil hovering above the page (a yellow shaft + tip), drawn from the marker.

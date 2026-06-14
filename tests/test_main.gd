@@ -22,6 +22,8 @@ func _ready() -> void:
 	await _test_damage_and_iframes()
 	await _test_death_after_three_hits()
 	await _test_pencil_draws_ink()
+	await _test_ink_cap()
+	await _test_ink_damages_standing_player()
 	await _test_phase_two_trigger()
 	await _test_eraser_erases_ink()
 	await _test_win_on_reaching_edge()
@@ -151,6 +153,34 @@ func _test_pencil_draws_ink() -> void:
 	await get_tree().create_timer(3.8).timeout
 	var ink_count := get_tree().get_nodes_in_group("ink").size()
 	_check("pencil produced ink", ink_count >= 1, "(ink=%d)" % ink_count)
+	await _free_game(g)
+
+func _test_ink_cap() -> void:
+	_log("[ink cap]")
+	var g = await _make_game()
+	var r: Rect2 = Game.sheet_rect
+	g.pencil._commit_pos = r.position + r.size * 0.5
+	g.pencil._stroke_angle = 0.0
+	for i in range(Pencil.MAX_INK + 8):
+		g.pencil._spawn_ink()
+	await get_tree().process_frame
+	var count := get_tree().get_nodes_in_group("ink").size()
+	_check("ink count capped at MAX_INK", count <= Pencil.MAX_INK, "(count=%d, max=%d)" % [count, Pencil.MAX_INK])
+	await _free_game(g)
+
+func _test_ink_damages_standing_player() -> void:
+	_log("[ink hits a standing player]")
+	var g = await _make_game()
+	var player = g.player
+	var hp0: int = player.health
+	# Drop a stroke right on the (idle) player.
+	var ink = Ink.new()
+	g.add_child(ink)
+	var p: Vector2 = player.global_position
+	ink.setup(p - Vector2(20, 0), p + Vector2(20, 0))
+	for i in range(4):
+		await get_tree().physics_frame
+	_check("stroke on standing player deals damage", player.health < hp0, "(hp %d->%d)" % [hp0, player.health])
 	await _free_game(g)
 
 func _test_phase_two_trigger() -> void:
