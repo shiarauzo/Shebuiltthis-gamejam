@@ -87,13 +87,13 @@ func _build_hud() -> void:
 
 	flash_rect = ColorRect.new()
 	flash_rect.color = Color(1, 0, 0, 0)
-	flash_rect.size = Vector2(1280, 720)
+	flash_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fx.add_child(flash_rect)
 
 	fade_rect = ColorRect.new()
 	fade_rect.color = Color(0.06, 0.06, 0.08, 1)
-	fade_rect.size = Vector2(1280, 720)
+	fade_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fx.add_child(fade_rect)
 	var fade_tw := create_tween()
