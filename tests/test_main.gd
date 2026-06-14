@@ -21,6 +21,7 @@ func _ready() -> void:
 	await _test_touch_movement()
 	await _test_focus_out_stops_movement()
 	await _test_damage_and_iframes()
+	await _test_hearts_track_health()
 	await _test_death()
 	await _test_intro_then_play()
 	await _test_pencil_draws_ink()
@@ -133,6 +134,21 @@ func _test_damage_and_iframes() -> void:
 	player.take_damage()
 	_check("second hit during i-frames ignored", player.health == 2, "(hp=%d)" % player.health)
 	_check("fade applied", player.modulate.a < 1.0, "(a=%.2f)" % player.modulate.a)
+	await _free_game(g)
+
+func _test_hearts_track_health() -> void:
+	_log("[hearts HUD tracks health]")
+	var g = await _make_game()
+	var player = g.player
+	_check("three hearts built", g.hearts.size() == 3, "(n=%d)" % g.hearts.size())
+	_check("textures loaded", g.heart_full_tex != null and g.heart_empty_tex != null)
+	_check("all hearts full at start", g.hearts[0].texture == g.heart_full_tex \
+		and g.hearts[2].texture == g.heart_full_tex)
+	player.take_damage()  # health 3 -> 2, emits health_changed -> _on_player_hit
+	await get_tree().process_frame
+	_check("hit empties the last heart", g.hearts[2].texture == g.heart_empty_tex)
+	_check("remaining hearts stay full", g.hearts[0].texture == g.heart_full_tex \
+		and g.hearts[1].texture == g.heart_full_tex, "(hp=%d)" % player.health)
 	await _free_game(g)
 
 func _test_death() -> void:

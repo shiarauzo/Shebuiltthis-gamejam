@@ -30,6 +30,11 @@ var edge_glow: EscapeEdge
 var hud_label: Label
 var dialogue_label: Label
 
+# Sketchy heart health display (procedural rough.js SVGs).
+var heart_full_tex: Texture2D
+var heart_empty_tex: Texture2D
+var hearts: Array[TextureRect] = []
+
 # Screen FX
 var cam: Camera2D
 var flash_rect: ColorRect
@@ -251,9 +256,16 @@ func _begin_ending() -> void:
 func _on_player_died() -> void:
 	_end_game(false)
 
-func _on_player_hit(_health: int) -> void:
+func _on_player_hit(health: int) -> void:
 	shake(9.0, 0.28)
 	flash(Color(0.85, 0.1, 0.1), 0.32, 0.32)
+	_update_hearts(health)
+	# Pop the heart that just emptied for tactile feedback.
+	if health >= 0 and health < hearts.size():
+		var lost := hearts[health]
+		lost.scale = Vector2(1.5, 1.5)
+		var tw := create_tween()
+		tw.tween_property(lost, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _end_game(won: bool) -> void:
 	if ended:
@@ -301,6 +313,35 @@ func _build_hud() -> void:
 	dialogue_label.rotation_degrees = -3.0
 	dialogue_label.visible = false
 	layer.add_child(dialogue_label)
+
+	_build_hearts(layer)
+
+func _build_hearts(layer: CanvasLayer) -> void:
+	heart_full_tex = load("res://assets/sprites/heart_full.svg") as Texture2D
+	heart_empty_tex = load("res://assets/sprites/heart_empty.svg") as Texture2D
+
+	# Three hearts pinned to the top-right of the page.
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	box.position = Vector2(Game.sheet_rect.position.x + Game.sheet_rect.size.x - 150.0, 10.0)
+	box.rotation_degrees = -2.0  # slight hand-pinned tilt
+	layer.add_child(box)
+
+	for i in range(Player.MAX_HEALTH):
+		var h := TextureRect.new()
+		h.texture = heart_full_tex
+		h.custom_minimum_size = Vector2(44, 44)
+		h.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		h.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		h.pivot_offset = Vector2(22, 22)
+		box.add_child(h)
+		hearts.append(h)
+
+	_update_hearts(player.health)
+
+func _update_hearts(health: int) -> void:
+	for i in range(hearts.size()):
+		hearts[i].texture = heart_full_tex if i < health else heart_empty_tex
 
 func _build_fx() -> void:
 	var fx := CanvasLayer.new()
