@@ -16,3 +16,6 @@ tests/last_run.log
 
 # Local agent/session files
 .claude/
+
+# e2e screenshots
+tests/e2e/shots/

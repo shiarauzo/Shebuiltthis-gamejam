@@ -24,6 +24,7 @@ var eraser: Eraser
 var escape_edge: EscapeEdge
 var hud_label: Label
 var phase_label: Label
+var _report_t := 0.0
 
 # Screen FX
 var cam: Camera2D
@@ -34,6 +35,12 @@ var _shake_dur := 0.0
 var _shake_mag := 0.0
 
 func _ready() -> void:
+	# e2e fast mode: shorten the phases so browser tests reach the eraser/escape
+	# quickly. Set window.__AWAKE_FAST before loading the game scene.
+	if Game.web_flag("__AWAKE_FAST"):
+		eraser_trigger_time = 3.0
+		escape_open_delay = 2.0
+
 	var r: Rect2 = Game.sheet_rect
 
 	cam = Camera2D.new()
@@ -130,6 +137,11 @@ func _process(delta: float) -> void:
 	survival_time += delta
 	hud_label.text = "Survived: %.1fs" % survival_time
 
+	_report_t += delta
+	if _report_t >= 0.4:
+		_report_t = 0.0
+		Game.web_report({"phase": phase, "ended": ended, "won": Game.won, "t": survival_time, "health": player.health})
+
 	match phase:
 		1:
 			var remain := maxf(0.0, eraser_trigger_time - survival_time)
@@ -186,6 +198,7 @@ func _end_game(won: bool) -> void:
 	ended = true
 	Game.won = won
 	Game.final_score = survival_time
+	Game.web_report({"phase": phase, "ended": true, "won": won, "t": survival_time, "health": player.health})
 	game_over.emit(won)
 	if Game.testing:
 		return
