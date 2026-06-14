@@ -1,14 +1,17 @@
 extends Node
 ## Headless integration test harness for Notebook Awakening.
 ## Run with:  Godot --headless res://tests/test_main.tscn
-## Exits with code 0 if all tests pass, 1 otherwise.
+## Results print to stdout (and to user://last_run.log).
+## Exits with code 0 if all tests pass, 1 otherwise (3 = watchdog timeout).
 
 var _failures: int = 0
 var _passes: int = 0
 var _logf: FileAccess
 
 func _ready() -> void:
-	_logf = FileAccess.open("res://tests/last_run.log", FileAccess.WRITE)
+	# user:// is writable everywhere (res:// is read-only in web/PCK builds).
+	# _log() already null-guards _logf, so a failed open is safe.
+	_logf = FileAccess.open("user://last_run.log", FileAccess.WRITE)
 	# Watchdog: never hang forever.
 	get_tree().create_timer(40.0).timeout.connect(func():
 		_log("WATCHDOG TIMEOUT — harness did not finish in time")
