@@ -255,16 +255,20 @@ func _test_win_on_reaching_edge() -> void:
 	await _free_game(g)
 
 func _test_lose_on_eraser_contact() -> void:
-	_log("[lose on eraser contact]")
+	_log("[eraser spawn grace + contact loses]")
 	Game.won = true  # set opposite to prove it flips
-	var g = await _make_game(0.5)
+	var g = await _make_game(0.3)
 	var player = g.player
-	await get_tree().create_timer(0.8).timeout
+	await get_tree().create_timer(0.5).timeout  # let the eraser spawn
 	_check("eraser exists for contact test", g.eraser != null)
 	if g.eraser:
-		# Drive the eraser onto the player.
+		# Force overlap immediately; during spawn grace it must NOT kill.
 		g.eraser.global_position = player.global_position
-		for i in range(8):
+		for i in range(5):
 			await get_tree().physics_frame
-	_check("eraser contact loses", g.ended and Game.won == false)
+		_check("no instant kill during spawn grace", not g.ended)
+		# After the grace window it catches the overlapping player.
+		await get_tree().create_timer(g.eraser.SPAWN_GRACE).timeout
+		await get_tree().physics_frame
+		_check("eraser contact loses after grace", g.ended and Game.won == false)
 	await _free_game(g)

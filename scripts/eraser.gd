@@ -7,8 +7,10 @@ signal caught_player
 
 const SPEED := 120.0
 const ERASE_RADIUS := 92.0
+const SPAWN_GRACE := 0.6  # can't catch the player for a beat after appearing
 
 var target: Node2D
+var _armed := false
 
 func _ready() -> void:
 	z_index = 6
@@ -21,6 +23,16 @@ func _ready() -> void:
 	cs.shape = rect
 	add_child(cs)
 	body_entered.connect(_on_body_entered)
+	get_tree().create_timer(SPAWN_GRACE).timeout.connect(_arm)
+
+func _arm() -> void:
+	_armed = true
+	# If the player is already overlapping when grace ends, catch them now
+	# (body_entered won't re-fire for an existing overlap).
+	for b in get_overlapping_bodies():
+		if b.is_in_group("player"):
+			caught_player.emit()
+			return
 
 	# Trailing eraser-shaving dust.
 	var dust := CPUParticles2D.new()
@@ -51,7 +63,7 @@ func _physics_process(delta: float) -> void:
 			ink.queue_free()
 
 func _on_body_entered(body: Node) -> void:
-	if body.is_in_group("player"):
+	if _armed and body.is_in_group("player"):
 		caught_player.emit()
 
 func _draw() -> void:
