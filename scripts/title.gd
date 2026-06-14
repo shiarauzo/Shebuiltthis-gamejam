@@ -88,15 +88,22 @@ func _input(event: InputEvent) -> void:
 
 
 class _TitleDoodle extends Node2D:
+	func _ready() -> void:
+		Game.boil_tick.connect(queue_redraw)
+
 	func _draw() -> void:
 		var col := Color(0.12, 0.12, 0.18, 0.5)
-		draw_arc(Vector2(0, -14), 9.0, 0, TAU, 24, col, 2.0)
-		draw_line(Vector2(0, -5), Vector2(0, 14), col, 2.0)
-		draw_line(Vector2(-12, 1), Vector2(12, 1), col, 2.0)
-		draw_line(Vector2(0, 14), Vector2(-10, 30), col, 2.0)
-		draw_line(Vector2(0, 14), Vector2(10, 30), col, 2.0)
+		var head := PackedVector2Array()
+		for i in range(11):
+			var a := i * TAU / 10.0
+			head.append(Game.boil_jitter(Vector2(0, -14) + Vector2(cos(a), sin(a)) * 9.0))
+		draw_polyline(head, col, 2.0)
+		draw_line(Game.boil_jitter(Vector2(0, -5)), Game.boil_jitter(Vector2(0, 14)), col, 2.0)
+		draw_line(Game.boil_jitter(Vector2(-12, 1)), Game.boil_jitter(Vector2(12, 1)), col, 2.0)
+		draw_line(Game.boil_jitter(Vector2(0, 14)), Game.boil_jitter(Vector2(-10, 30)), col, 2.0)
+		draw_line(Game.boil_jitter(Vector2(0, 14)), Game.boil_jitter(Vector2(10, 30)), col, 2.0)
 		# little "awakening" sparks
 		for i in range(3):
 			var a := -PI / 2.0 + (i - 1) * 0.5
 			var p := Vector2(cos(a), sin(a)) * 34.0 + Vector2(0, -18)
-			draw_line(p, p + Vector2(cos(a), sin(a)) * 8.0, col, 2.0)
+			draw_line(Game.boil_jitter(p), Game.boil_jitter(p + Vector2(cos(a), sin(a)) * 8.0), col, 2.0)
