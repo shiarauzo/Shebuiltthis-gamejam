@@ -76,15 +76,15 @@ func _spawn_ink() -> void:
 
 func _draw() -> void:
 	# Pencil hovering above the page (a yellow shaft + tip), drawn from the marker.
-	draw_line(Vector2.ZERO, Vector2(34, -86), Color(0.86, 0.66, 0.20, 0.85), 7.0)
-	draw_line(Vector2(34, -86), Vector2(46, -112), Color(0.95, 0.85, 0.6, 0.9), 7.0)
+	draw_line(Game.boil_jitter(Vector2.ZERO), Game.boil_jitter(Vector2(34, -86)), Color(0.86, 0.66, 0.20, 0.85), 7.0)
+	draw_line(Game.boil_jitter(Vector2(34, -86)), Game.boil_jitter(Vector2(46, -112)), Color(0.95, 0.85, 0.6, 0.9), 7.0)
 	draw_circle(Vector2(46, -112), 4.0, Color(0.85, 0.5, 0.25, 0.9))
 
 	if _state == "commit":
 		# Telegraph: faint pulsing preview of the exact stroke that will be inked.
 		var half := Vector2(cos(_stroke_angle), sin(_stroke_angle)) * (STROKE_LEN * 0.5)
 		var pulse := 0.5 + 0.5 * sin(_t * 18.0)
-		draw_line(-half, half, Color(0.55, 0.55, 0.6, 0.30 + 0.45 * pulse), 3.0)
+		draw_line(Game.boil_jitter(-half), Game.boil_jitter(half), Color(0.55, 0.55, 0.6, 0.30 + 0.45 * pulse), 3.0)
 		draw_circle(Vector2.ZERO, 5.0, Color(0.85, 0.12, 0.12, 0.85))
 	else:
 		draw_circle(Vector2.ZERO, 5.0, Color(0.35, 0.35, 0.4, 0.45))

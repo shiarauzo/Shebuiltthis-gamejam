@@ -22,6 +22,7 @@ var _dead := false
 
 func _ready() -> void:
 	add_to_group("player")
+	Game.boil_tick.connect(queue_redraw)
 	z_index = 5
 	collision_layer = 1
 	collision_mask = 0
@@ -112,8 +113,13 @@ func _update_fade() -> void:
 
 func _draw() -> void:
 	var col := Color(0.12, 0.12, 0.18)
-	draw_arc(Vector2(0, -14), 7.0, 0, TAU, 24, col, 2.0)   # head
-	draw_line(Vector2(0, -7), Vector2(0, 10), col, 2.0)    # body
-	draw_line(Vector2(-9, -1), Vector2(9, -1), col, 2.0)   # arms
-	draw_line(Vector2(0, 10), Vector2(-8, 22), col, 2.0)   # left leg
-	draw_line(Vector2(0, 10), Vector2(8, 22), col, 2.0)    # right leg
+	# Head as a boiled ring (hand-drawn wobble).
+	var head := PackedVector2Array()
+	for i in range(11):
+		var a := i * TAU / 10.0
+		head.append(Game.boil_jitter(Vector2(0, -14) + Vector2(cos(a), sin(a)) * 7.0))
+	draw_polyline(head, col, 2.0)
+	draw_line(Game.boil_jitter(Vector2(0, -7)), Game.boil_jitter(Vector2(0, 10)), col, 2.0)    # body
+	draw_line(Game.boil_jitter(Vector2(-9, -1)), Game.boil_jitter(Vector2(9, -1)), col, 2.0)   # arms
+	draw_line(Game.boil_jitter(Vector2(0, 10)), Game.boil_jitter(Vector2(-8, 22)), col, 2.0)   # left leg
+	draw_line(Game.boil_jitter(Vector2(0, 10)), Game.boil_jitter(Vector2(8, 22)), col, 2.0)    # right leg
