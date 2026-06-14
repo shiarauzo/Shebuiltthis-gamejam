@@ -50,11 +50,21 @@ func setup(a: Vector2, b: Vector2) -> void:
 	burst.color = Color(0.13, 0.18, 0.55)
 	burst.emitting = true
 	add_child(burst)
+	burst.finished.connect(burst.queue_free)  # don't leave idle emitters in the tree
 
-func _physics_process(_delta: float) -> void:
-	# Continuous hazard: damages on overlap (not just on entry), so a stroke
-	# drawn on top of a standing player still hurts. take_damage() respects
-	# i-frames, so this won't spam more than once per invulnerability window.
+	# Damage on entry (cheap, signal-based) instead of polling every frame.
+	body_entered.connect(_on_body_entered)
+	# Also catch a player who was already standing where the stroke landed.
+	_check_initial_overlap.call_deferred()
+
+func _on_body_entered(body: Node) -> void:
+	if body.is_in_group("player") and body.has_method("take_damage"):
+		body.take_damage()
+
+func _check_initial_overlap() -> void:
+	await get_tree().physics_frame
+	if not is_instance_valid(self):
+		return
 	for body in get_overlapping_bodies():
 		if body.is_in_group("player") and body.has_method("take_damage"):
 			body.take_damage()
