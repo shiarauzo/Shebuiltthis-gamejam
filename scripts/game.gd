@@ -166,12 +166,12 @@ func _begin_play() -> void:
 func _introduce_threats() -> void:
 	if page >= 2 and pencil.target == null:
 		_drop_in_pencil()
-		_say("uh— a pencil falls from the sky!")
+		_say("uh oh, a pencil falls from the sky!")
 	if page >= 3 and not _erasers_on:
 		_erasers_on = true
 		_eraser_timer = 1.2 if _fast else 2.4
 		_spawn_eraser_wave()  # the first one right away
-		_say("erasers!! they're raining down— run!")
+		_say("erasers!! they're raining down, run!")
 
 ## The pencil drops from above, then starts hunting once it lands.
 func _drop_in_pencil() -> void:
@@ -246,7 +246,7 @@ func _process(delta: float) -> void:
 		# Page 1: nudge the doodle onward when it nears the (invisible) edge.
 		if page == 1 and not _edge_hint_shown and player.global_position.x >= r.position.x + r.size.x - 260.0:
 			_edge_hint_shown = true
-			_say("huh— looks like the path continues →")
+			_say("huh, looks like the path continues →")
 
 		if player.global_position.x >= r.position.x + r.size.x - 24.0:
 			_flip_page()
