@@ -52,14 +52,15 @@ func _ready() -> void:
 	pt.tween_property(prompt, "modulate:a", 0.4, 0.7).set_trans(Tween.TRANS_SINE)
 	pt.tween_property(prompt, "modulate:a", 1.0, 0.7).set_trans(Tween.TRANS_SINE)
 
-	# A little doodle waking up beside the title.
-	var doodle := _TitleDoodle.new()
-	doodle.position = Vector2(vp.x * 0.5, card_top + ch - 16.0)
+	# Shiara's own doodle, waking up beside the title.
+	var doodle := Sprite2D.new()
+	doodle.texture = load("res://assets/sprites/doodle_run/run_0.png")
+	doodle.position = Vector2(vp.x * 0.5, card_top + ch - 4.0)
 	doodle.scale = Vector2.ZERO
 	add_child(doodle)
 	var dt := create_tween()
 	dt.tween_interval(0.2)
-	dt.tween_property(doodle, "scale", Vector2(1.5, 1.5), 0.55).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	dt.tween_property(doodle, "scale", Vector2(0.4, 0.4), 0.55).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 	# Fade in from black.
 	var fade := ColorRect.new()
