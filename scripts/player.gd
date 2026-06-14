@@ -16,6 +16,8 @@ var invincible := false
 var _iframe_t := 0.0
 var _blink_t := 0.0
 var _focused := true
+var _touching := false
+var _touch_target := Vector2.ZERO
 
 func _ready() -> void:
 	add_to_group("player")
@@ -33,9 +35,20 @@ func _notification(what: int) -> void:
 	# would "stick". Treat focus-out as all-keys-released.
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
 		_focused = false
+		_touching = false
 		velocity = Vector2.ZERO
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
 		_focused = true
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Touch/drag-to-move for mobile: the doodle steers toward your finger.
+	if event is InputEventScreenTouch:
+		_touching = event.pressed
+		if event.pressed:
+			_touch_target = event.position
+	elif event is InputEventScreenDrag:
+		_touching = true
+		_touch_target = event.position
 
 func _physics_process(delta: float) -> void:
 	var dir := Vector2.ZERO
@@ -48,6 +61,11 @@ func _physics_process(delta: float) -> void:
 			dir.x -= 1.0
 		if Input.is_physical_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
 			dir.x += 1.0
+
+	if _focused and _touching:
+		var to := _touch_target - global_position
+		if to.length() > 8.0:  # deadzone so a tap near the figure doesn't jitter
+			dir += to.normalized()
 
 	velocity = dir.normalized() * SPEED
 	move_and_slide()

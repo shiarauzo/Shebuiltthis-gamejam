@@ -50,7 +50,7 @@ func _ready() -> void:
 	vbox.add_child(spacer)
 
 	var how := Label.new()
-	how.text = "Move: WASD / Arrows    Dodge the ink. Survive. Escape."
+	how.text = "Move: WASD / Arrows / drag      Dodge the ink. Survive. Escape."
 	how.add_theme_font_size_override("font_size", 18)
 	how.add_theme_color_override("font_color", Color(0.4, 0.4, 0.45))
 	how.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
