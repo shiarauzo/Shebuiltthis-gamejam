@@ -199,6 +199,7 @@ func _play_win_cinematic() -> void:
 		pencil.set_process(false)
 	if eraser:
 		eraser.set_process(false)
+		eraser.set_physics_process(false)  # eraser chases in _physics_process
 	player.set_physics_process(false)
 
 	var r: Rect2 = Game.sheet_rect
@@ -208,4 +209,6 @@ func _play_win_cinematic() -> void:
 	tw.tween_property(player, "global_position", leap_to, 0.75).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	tw.tween_property(player, "rotation", 0.7, 0.75)
 	tw.tween_property(player, "scale", Vector2(0.55, 0.55), 0.75)
-	tw.chain().tween_callback(func(): get_tree().change_scene_to_file("res://scenes/end.tscn"))
+	tw.chain().tween_callback(func():
+		if is_instance_valid(self):
+			get_tree().change_scene_to_file("res://scenes/end.tscn"))
