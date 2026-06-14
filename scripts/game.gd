@@ -100,6 +100,8 @@ func _build_hud() -> void:
 	fade_tw.tween_property(fade_rect, "color:a", 0.0, 0.45)
 
 func shake(mag: float, dur: float) -> void:
+	if dur <= 0.0:
+		return  # guard the per-frame division _shake_t / _shake_dur
 	_shake_mag = mag
 	_shake_dur = dur
 	_shake_t = dur
