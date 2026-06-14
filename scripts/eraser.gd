@@ -1,18 +1,21 @@
 extends Area2D
 class_name Eraser
-## The giant eraser (phase 2). Chases the player, erases ink it passes over,
-## and chips away one heart each time it touches the player (player i-frames
-## space the hits out, so contact drains a heart roughly once per i-frame
-## window rather than an instant kill).
+## A giant eraser that DROPS FROM THE SKY, chases the doodle for a short while,
+## then flies back up and leaves. Touching it chips one heart (player i-frames
+## space the repeats out, so it's not an instant kill). Several can rain down at
+## once on the later pages — see Game._spawn_eraser_wave().
 
 signal caught_player
 
-const SPEED := 120.0
+const SPEED := 130.0
 const ERASE_RADIUS := 92.0
-const SPAWN_GRACE := 0.6  # can't catch the player for a beat after appearing
+const LIFE := 4.5  # seconds spent chasing before it flies away
 
 var target: Node2D
-var _armed := false
+var land_pos := Vector2.ZERO  # set by the spawner before add_child
+
+var _phase := "enter"  # enter | chase | leave
+var _life_t := 0.0
 
 func _ready() -> void:
 	z_index = 6
@@ -30,29 +33,23 @@ func _ready() -> void:
 	spr.scale = Vector2(0.34, 0.34)
 	add_child(spr)
 	body_entered.connect(_on_body_entered)
-	get_tree().create_timer(SPAWN_GRACE).timeout.connect(_arm)
 
-func _arm() -> void:
-	_armed = true
-
-	# Trailing eraser-shaving dust.
-	var dust := CPUParticles2D.new()
-	dust.amount = 18
-	dust.lifetime = 0.6
-	dust.spread = 180.0
-	dust.direction = Vector2(0, 1)
-	dust.gravity = Vector2(0, 50)
-	dust.initial_velocity_min = 8.0
-	dust.initial_velocity_max = 45.0
-	dust.scale_amount_min = 1.0
-	dust.scale_amount_max = 2.5
-	dust.color = Color(0.96, 0.86, 0.89, 0.7)
-	dust.emitting = true
-	add_child(dust)
+	# Drop in from above the page to the landing spot.
+	var sky := Vector2(land_pos.x, Game.sheet_rect.position.y - 170.0)
+	global_position = sky
+	var tw := create_tween()
+	tw.tween_property(self, "global_position:y", land_pos.y, 0.45).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func(): _phase = "chase")
 
 func _physics_process(delta: float) -> void:
-	# Runs at a fixed 60 Hz (not the uncapped visual frame rate) and settles with
-	# the physics step. Ink is capped (see Pencil.MAX_INK), so this scan is small.
+	if _phase != "chase":
+		return
+
+	_life_t += delta
+	if _life_t >= LIFE:
+		_leave()
+		return
+
 	if target and is_instance_valid(target):
 		var to := target.global_position - global_position
 		if to.length() > 1.0:
@@ -64,14 +61,22 @@ func _physics_process(delta: float) -> void:
 			ink.queue_free()
 
 	# Contact damage: while overlapping the player, keep signalling a hit. The
-	# player's i-frames swallow the repeats, so each touch costs one heart and
-	# the player gets a window to break away before the next.
-	if _armed and monitoring:
-		for b in get_overlapping_bodies():
-			if b.is_in_group("player"):
-				caught_player.emit()
-				break
+	# player's i-frames swallow the repeats, so each touch costs one heart.
+	for b in get_overlapping_bodies():
+		if b.is_in_group("player"):
+			caught_player.emit()
+			break
+
+## Fly back up off the page, then remove itself.
+func _leave() -> void:
+	if _phase == "leave":
+		return
+	_phase = "leave"
+	monitoring = false
+	var tw := create_tween()
+	tw.tween_property(self, "global_position:y", Game.sheet_rect.position.y - 220.0, 0.55).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(queue_free)
 
 func _on_body_entered(body: Node) -> void:
-	if _armed and body.is_in_group("player"):
+	if _phase == "chase" and body.is_in_group("player"):
 		caught_player.emit()

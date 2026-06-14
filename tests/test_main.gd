@@ -29,7 +29,7 @@ func _ready() -> void:
 	await _test_pencil_draws_ink()
 	await _test_ink_cap()
 	await _test_ink_damages_standing_player()
-	await _test_eraser_spawn_grace_and_catch()
+	await _test_eraser_contact_and_leaves()
 	await _test_page_flip_advances()
 	await _test_five_pages_then_win()
 
@@ -174,8 +174,8 @@ func _test_intro_then_play() -> void:
 	g._begin_play()
 	await get_tree().physics_frame
 	_check("begins play on input", g.state == "play", "(state=%s)" % g.state)
-	# Page 1 is a calm explore: no pencil, no eraser yet.
-	_check("page 1 has no eraser yet", g.eraser == null)
+	# Page 1 is a calm explore: no pencil, no erasers yet.
+	_check("page 1 has no erasers yet", get_tree().get_nodes_in_group("erasers").size() == 0)
 	_check("page 1 pencil has no target yet", g.pencil.target == null)
 	await _free_game(g)
 
@@ -183,16 +183,30 @@ func _test_player_collides_with_doodles() -> void:
 	_log("[player bumps decorative doodles]")
 	var g = await _make_game()
 	g._begin_play()
+	g.notebook.set_page(5)  # a busy page -> plenty of obstacles to pick from
+	await get_tree().process_frame  # let the old obstacles' queue_free settle
 	g.player.set_physics_process(false)  # drive movement manually
 	var r: Rect2 = Game.sheet_rect
-	var star := r.position + Vector2(240, 120)  # a known obstacle (see notebook.gd)
-	g.player.global_position = star - Vector2(60, 0)
+	# Pick a doodle obstacle (scoped to this notebook) with room to its left.
+	var ob: Node2D = null
+	for o in g.notebook.get_children():
+		if not (o is StaticBody2D):
+			continue
+		if o.position.x > r.position.x + 250.0 and o.position.x < r.position.x + r.size.x - 150.0 \
+				and o.position.y > r.position.y + 100.0 and o.position.y < r.position.y + r.size.y - 100.0:
+			ob = o
+			break
+	_check("found a testable doodle obstacle", ob != null)
+	if ob == null:
+		await _free_game(g)
+		return
+	g.player.global_position = Vector2(ob.position.x - 80.0, ob.position.y)
 	for i in range(40):
-		g.player.velocity = Vector2(300, 0)
+		g.player.velocity = Vector2(320, 0)
 		g.player.move_and_slide()
 		await get_tree().physics_frame
-	_check("blocked by the star doodle (can't walk through)", g.player.global_position.x < star.x,
-		"(px=%.0f starx=%.0f)" % [g.player.global_position.x, star.x])
+	_check("blocked by a doodle (can't walk through)", g.player.global_position.x < ob.position.x,
+		"(px=%.0f obx=%.0f)" % [g.player.global_position.x, ob.position.x])
 	await _free_game(g)
 
 func _test_threats_are_incremental() -> void:
@@ -200,14 +214,14 @@ func _test_threats_are_incremental() -> void:
 	var g = await _make_game()
 	g._begin_play()
 	_check("page 1: no pencil", g.pencil.target == null)
-	_check("page 1: no eraser", g.eraser == null)
+	_check("page 1: no erasers", get_tree().get_nodes_in_group("erasers").size() == 0)
 	g.page = 2
 	g._introduce_threats()
-	_check("page 2: pencil scribbling", g.pencil.target != null)
-	_check("page 2: still no eraser", g.eraser == null)
+	_check("page 2: pencil drops in", g.pencil.target != null)
+	_check("page 2: still no erasers", get_tree().get_nodes_in_group("erasers").size() == 0)
 	g.page = 3
 	g._introduce_threats()
-	_check("page 3: eraser appears", g.eraser != null and is_instance_valid(g.eraser))
+	_check("page 3: erasers start raining", g._erasers_on and get_tree().get_nodes_in_group("erasers").size() >= 1)
 	await _free_game(g)
 
 func _test_pencil_draws_ink() -> void:
@@ -249,31 +263,31 @@ func _test_ink_damages_standing_player() -> void:
 	_check("stroke on standing player deals damage", player.health < hp0, "(hp %d->%d)" % [hp0, player.health])
 	await _free_game(g)
 
-func _test_eraser_spawn_grace_and_catch() -> void:
-	_log("[eraser spawn grace + contact damage]")
+func _test_eraser_contact_and_leaves() -> void:
+	_log("[eraser drops in, chips a heart, then leaves]")
 	var g = await _make_game()
 	g._begin_play()
 	g.page = 3
-	g._introduce_threats()  # the eraser appears on page 3
+	g._introduce_threats()  # rains the first wave of erasers
+	var erasers := get_tree().get_nodes_in_group("erasers")
+	_check("an eraser dropped in", erasers.size() >= 1)
+	if erasers.size() == 0:
+		await _free_game(g)
+		return
+	var e = erasers[0]
 	var player = g.player
-	await get_tree().physics_frame
-	_check("eraser exists", g.eraser != null)
-	# Force overlap immediately; grace must protect.
-	g.eraser.global_position = player.global_position
-	for i in range(5):
-		await get_tree().physics_frame
-	_check("no hit during spawn grace", player.health == Player.MAX_HEALTH and not g.ended, "(hp=%d)" % player.health)
-	await get_tree().create_timer(g.eraser.SPAWN_GRACE).timeout
-	# Contact chips one heart (not an instant kill); keep the eraser on the player.
+	# Once it finishes dropping (chase phase) and we keep it on the player, contact
+	# chips a heart — i-frames mean it's not an instant kill.
 	var chipped := await _wait_until(func():
-		g.eraser.global_position = player.global_position
-		return player.health < Player.MAX_HEALTH, 3.0)
+		if is_instance_valid(e):
+			e.global_position = player.global_position
+		return player.health < Player.MAX_HEALTH, 4.0)
 	_check("eraser contact chips a heart, not instant death", chipped and not g.ended, "(hp=%d)" % player.health)
-	# Sustained contact eventually drains every heart -> loss.
-	var lost := await _wait_until(func():
-		g.eraser.global_position = player.global_position
-		return g.ended, 6.0)
-	_check("sustained eraser contact eventually loses", lost and Game.won == false, "(hp=%d)" % player.health)
+	# It's transient: after its lifetime it flies away and frees itself. Track by
+	# instance id so the closure never captures a freed object.
+	var eid := e.get_instance_id()
+	var left := await _wait_until(func(): return not is_instance_valid(instance_from_id(eid)), 7.0)
+	_check("eraser leaves after a while (transient)", left)
 	await _free_game(g)
 
 func _test_page_flip_advances() -> void:

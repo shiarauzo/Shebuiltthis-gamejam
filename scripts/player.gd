@@ -23,9 +23,11 @@ var _touching := false
 var _touch_target := Vector2.ZERO
 var _dead := false
 var _sprite: AnimatedSprite2D
+var _godmode := false  # test-only: __AWAKE_INVINCIBLE lets the e2e prove the win flow
 
 func _ready() -> void:
 	add_to_group("player")
+	_godmode = Game.web_flag("__AWAKE_INVINCIBLE")  # cached once (no per-hit JS eval)
 	z_index = 5
 	collision_layer = 1
 	collision_mask = OBSTACLE_LAYER  # bump into the page's decorative doodles
@@ -129,7 +131,7 @@ func die() -> void:
 	died.emit()
 
 func take_damage() -> void:
-	if invincible or _dead:
+	if _godmode or invincible or _dead:
 		return
 	health -= 1
 	health_changed.emit(health)

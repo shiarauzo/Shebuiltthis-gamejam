@@ -43,11 +43,15 @@ start_game() {
     sleep 0.5
   done
   agent-browser eval "window.__AWAKE_FAST=1" >/dev/null 2>&1
+  # GOD=1 makes the doodle invincible so the blind hold-right bot can prove the
+  # win flow on the now-harder later pages (a human dodges; the bot can't).
+  [ "${GOD:-0}" = "1" ] && agent-browser eval "window.__AWAKE_INVINCIBLE=1" >/dev/null 2>&1
   agent-browser click "#canvas" >/dev/null 2>&1   # start from the title
 }
 
 # ---- scenario 1: intro -> play -> 5 pages -> win -------------------------
 echo "[e2e] open $URL"
+GOD=1
 start_game
 [ -n "$(sstate)" ] && ok "engine started" || no "engine did not start"
 agent-browser screenshot "$SHOTS/01-start.png" >/dev/null 2>&1
@@ -58,17 +62,18 @@ for i in $(seq 1 30); do [ "$(sstate)" = "play" ] && { played=1; break; }; sleep
 [ "$played" = "1" ] && ok "intro hands off to play" || no "never reached play (state=$(sstate))"
 agent-browser screenshot "$SHOTS/02-play.png" >/dev/null 2>&1
 
-# Hold a touch (mouse-emulated) at the right edge: the doodle runs there and
-# auto-advances page after page.
+# Hold a touch (mouse-emulated) toward the right edge, WEAVING vertically so the
+# doodle slips around the decorative-doodle obstacles (denser on later pages).
 agent-browser mouse move 1245 360 >/dev/null 2>&1
 agent-browser mouse down >/dev/null 2>&1
 max_page=1; won=""
-for i in $(seq 1 120); do
-  agent-browser mouse move 1245 360 >/dev/null 2>&1
+for i in $(seq 1 160); do
+  if (( i % 2 == 0 )); then Y=210; else Y=520; fi
+  agent-browser mouse move 1245 $Y >/dev/null 2>&1
   p=$(num page); p=${p:-1}
   [ "$p" -gt "$max_page" ] 2>/dev/null && max_page=$p
   if [ "$(bool ended)" = "true" ]; then won=$(bool won); break; fi
-  sleep 0.3
+  sleep 0.25
 done
 agent-browser mouse up >/dev/null 2>&1
 agent-browser screenshot "$SHOTS/03-win.png" >/dev/null 2>&1
@@ -80,6 +85,7 @@ echo "[e2e] scenario 1: max_page=$max_page ended won=${won:-?}"
 # Threats are now incremental (pencil page 2, eraser page 3), so page 1 is safe.
 # Advance to page 3 where the eraser appears, then stop and let it drain us.
 echo "[e2e] --- scenario 2: reach the eraser page, then stand still ---"
+GOD=0
 start_game
 for i in $(seq 1 30); do [ "$(sstate)" = "play" ] && break; sleep 0.5; done
 agent-browser mouse move 1245 360 >/dev/null 2>&1

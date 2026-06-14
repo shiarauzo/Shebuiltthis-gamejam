@@ -27,7 +27,9 @@ var _fast := false
 
 var player: Player
 var pencil: Pencil
-var eraser: Eraser
+var _erasers_on := false      # eraser rain enabled (from page 3)
+var _eraser_timer := 0.0      # time until the next wave drops
+var _edge_hint_shown := false # page-1 "the path continues" nudge
 var notebook: Notebook
 var edge_glow: EscapeEdge
 var hud_label: Label
@@ -68,6 +70,7 @@ func _ready() -> void:
 	notebook = Notebook.new()
 	notebook.z_index = -10
 	add_child(notebook)
+	notebook.set_page(1)
 
 	edge_glow = EscapeEdge.new()
 	add_child(edge_glow)
@@ -158,26 +161,57 @@ func _begin_play() -> void:
 	# page by page as the doodle advances (see _introduce_threats).
 	edge_glow.open()
 
-## Bring in the hazards gradually: the pencil from page 2, the eraser from page 3.
+## Bring in the hazards gradually: the pencil drops in on page 2, the erasers
+## start raining from the sky on page 3 (more of them on later pages).
 func _introduce_threats() -> void:
 	if page >= 2 and pencil.target == null:
-		pencil.target = player  # a null target keeps the pencil inert on page 1
-		pencil.set_process(true)
-		pencil.visible = true
-		_say("uh— a pencil! keep moving →")
-	if page >= 3 and (eraser == null or not is_instance_valid(eraser)):
-		_spawn_eraser()
-		_say("the eraser!! run!")
+		_drop_in_pencil()
+		_say("uh— a pencil falls from the sky!")
+	if page >= 3 and not _erasers_on:
+		_erasers_on = true
+		_eraser_timer = 1.2 if _fast else 2.4
+		_spawn_eraser_wave()  # the first one right away
+		_say("erasers!! they're raining down— run!")
 
-func _spawn_eraser() -> void:
+## The pencil drops from above, then starts hunting once it lands.
+func _drop_in_pencil() -> void:
+	var top := Game.sheet_rect.position.y + 24.0
+	pencil.target = player
+	pencil.visible = true
+	pencil.set_process(false)
+	pencil.global_position = Vector2(player.global_position.x, Game.sheet_rect.position.y - 170.0)
+	var tw := create_tween()
+	tw.tween_property(pencil, "global_position:y", top, 0.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func(): pencil.set_process(true))
+
+func _eraser_wave_size() -> int:
+	if page >= 5:
+		return 3
+	if page >= 4:
+		return 2
+	return 1
+
+func _spawn_eraser_wave() -> void:
 	var r: Rect2 = Game.sheet_rect
-	eraser = Eraser.new()
-	eraser.target = player
-	eraser.global_position = r.position + Vector2(28, 28)
-	add_child(eraser)
-	eraser.caught_player.connect(player.take_damage)  # contact chips a heart, not instant death
-	shake(14.0, 0.45)
-	flash(Color(0.95, 0.55, 0.66), 0.35, 0.45)
+	for i in range(_eraser_wave_size()):
+		var lx := r.position.x + randf_range(r.size.x * 0.2, r.size.x * 0.9)
+		var ly := r.position.y + randf_range(60.0, 120.0)
+		_spawn_eraser(Vector2(lx, ly))
+	shake(10.0, 0.3)
+	flash(Color(0.95, 0.55, 0.66), 0.28, 0.4)
+
+func _spawn_eraser(landing: Vector2) -> void:
+	var e := Eraser.new()
+	e.target = player
+	e.land_pos = landing
+	e.add_to_group("erasers")
+	add_child(e)
+	e.caught_player.connect(player.take_damage)  # contact chips a heart, not instant death
+
+func _clear_erasers() -> void:
+	for e in get_tree().get_nodes_in_group("erasers"):
+		if is_instance_valid(e):
+			e.queue_free()
 
 # --- Per-frame -----------------------------------------------------------
 
@@ -199,8 +233,21 @@ func _process(delta: float) -> void:
 
 	if state == "play":
 		survival_time += delta
-		hud_label.text = "Page %d / %d   —   run for the edge →" % [page, total_pages]
+		hud_label.text = "Page %d / %d" % [page, total_pages]
 		var r: Rect2 = Game.sheet_rect
+
+		# Rain erasers from the sky in waves once enabled (page 3+).
+		if _erasers_on:
+			_eraser_timer -= delta
+			if _eraser_timer <= 0.0:
+				_eraser_timer = maxf(1.6, 4.0 - page * 0.4)
+				_spawn_eraser_wave()
+
+		# Page 1: nudge the doodle onward when it nears the (invisible) edge.
+		if page == 1 and not _edge_hint_shown and player.global_position.x >= r.position.x + r.size.x - 260.0:
+			_edge_hint_shown = true
+			_say("huh— looks like the path continues →")
+
 		if player.global_position.x >= r.position.x + r.size.x - 24.0:
 			_flip_page()
 
@@ -216,8 +263,8 @@ func _play_flip() -> void:
 	var r: Rect2 = Game.sheet_rect
 	player.set_physics_process(false)
 	player.invincible = true  # safe during the flip cinematic
-	if eraser and is_instance_valid(eraser):
-		eraser.monitoring = false  # can't catch the doodle mid-flip
+	_clear_erasers()          # any in-flight erasers leave with the page
+	_eraser_timer = 1.0
 	edge_glow.active = false
 	edge_glow.queue_redraw()
 
@@ -244,10 +291,9 @@ func _play_flip() -> void:
 	var ending := page > total_pages
 	if not ending:
 		_clear_ink()
+		notebook.set_page(page)  # more decorative doodles each page
 		player.global_position = Vector2(r.position.x + 60.0, r.position.y + r.size.y * 0.5)
 		player.rotation = 0.0
-		if eraser and is_instance_valid(eraser):
-			eraser.global_position = r.position + Vector2(40.0, 40.0)
 
 	# Turn the page around the left-hand spine: it lifts edge-on (the 3D beat),
 	# then lays over to the left, fading out so the fresh sheet is revealed.
@@ -263,12 +309,10 @@ func _play_flip() -> void:
 
 	edge_glow.active = true
 	edge_glow.queue_redraw()
-	if eraser and is_instance_valid(eraser):
-		eraser.monitoring = true
 	player.invincible = false
 	player.set_physics_process(true)
 	state = "play"
-	_introduce_threats()  # pencil from page 2, eraser from page 3
+	_introduce_threats()  # pencil from page 2, erasers rain from page 3
 
 # Lazily build the 3D page (a lit QuadMesh hinged at the spine, rendered into a
 # transparent SubViewport overlaid on the 2D game).
@@ -355,9 +399,8 @@ func _begin_ending() -> void:
 	var r: Rect2 = Game.sheet_rect
 	if pencil:
 		pencil.set_process(false)
-	if eraser and is_instance_valid(eraser):
-		eraser.queue_free()  # the threat is over; remove it so the cinematic is safe
-		eraser = null
+	_erasers_on = false
+	_clear_erasers()  # the threat is over; remove any so the cinematic is safe
 	_clear_ink()
 	player.set_physics_process(false)
 	player.invincible = true
