@@ -214,7 +214,7 @@ func _test_ink_damages_standing_player() -> void:
 	await _free_game(g)
 
 func _test_eraser_spawn_grace_and_catch() -> void:
-	_log("[eraser spawn grace + catch]")
+	_log("[eraser spawn grace + contact damage]")
 	var g = await _make_game()
 	g._begin_play()
 	var player = g.player
@@ -224,10 +224,18 @@ func _test_eraser_spawn_grace_and_catch() -> void:
 	g.eraser.global_position = player.global_position
 	for i in range(5):
 		await get_tree().physics_frame
-	_check("no instant kill during spawn grace", not g.ended)
+	_check("no hit during spawn grace", player.health == Player.MAX_HEALTH and not g.ended, "(hp=%d)" % player.health)
 	await get_tree().create_timer(g.eraser.SPAWN_GRACE).timeout
-	await get_tree().physics_frame
-	_check("eraser catch loses after grace", g.ended and Game.won == false)
+	# Contact chips one heart (not an instant kill); keep the eraser on the player.
+	var chipped := await _wait_until(func():
+		g.eraser.global_position = player.global_position
+		return player.health < Player.MAX_HEALTH, 3.0)
+	_check("eraser contact chips a heart, not instant death", chipped and not g.ended, "(hp=%d)" % player.health)
+	# Sustained contact eventually drains every heart -> loss.
+	var lost := await _wait_until(func():
+		g.eraser.global_position = player.global_position
+		return g.ended, 6.0)
+	_check("sustained eraser contact eventually loses", lost and Game.won == false, "(hp=%d)" % player.health)
 	await _free_game(g)
 
 func _test_page_flip_advances() -> void:
