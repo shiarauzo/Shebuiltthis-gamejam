@@ -28,6 +28,8 @@ func _ready() -> void:
 
 func _arm() -> void:
 	_armed = true
+	if not monitoring:
+		return  # collision is paused (e.g. during a page flip)
 	# If the player is already overlapping when grace ends, catch them now
 	# (body_entered won't re-fire for an existing overlap).
 	for b in get_overlapping_bodies():
