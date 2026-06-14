@@ -470,10 +470,14 @@ func _build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
 
+	var hand := load("res://assets/fonts/Caveat.ttf") as Font
+
 	hud_label = Label.new()
 	hud_label.position = Vector2(20, 12)
-	hud_label.add_theme_font_size_override("font_size", 20)
+	hud_label.add_theme_font_size_override("font_size", 28)
 	hud_label.add_theme_color_override("font_color", Color(0.15, 0.15, 0.2))
+	if hand:
+		hud_label.add_theme_font_override("font", hand)
 	layer.add_child(hud_label)
 
 	# Dialogue shown in a little speech bubble so it reads as someone talking.
@@ -494,8 +498,10 @@ func _build_hud() -> void:
 	layer.add_child(dialogue_box)
 
 	dialogue_label = Label.new()
-	dialogue_label.add_theme_font_size_override("font_size", 28)
-	dialogue_label.add_theme_color_override("font_color", Color(0.16, 0.18, 0.30))
+	dialogue_label.add_theme_font_size_override("font_size", 34)
+	dialogue_label.add_theme_color_override("font_color", Color(0.16, 0.16, 0.22))
+	if hand:
+		dialogue_label.add_theme_font_override("font", hand)
 	dialogue_box.add_child(dialogue_label)
 
 	_build_hearts(layer)
@@ -539,7 +545,7 @@ func _build_fx() -> void:
 	fx.add_child(flash_rect)
 
 	fade_rect = ColorRect.new()
-	fade_rect.color = Color(0.06, 0.06, 0.08, 1)
+	fade_rect.color = Color(0, 0, 0, 1)
 	fade_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
 	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fx.add_child(fade_rect)

@@ -32,35 +32,33 @@ func _ready() -> void:
 
 	var ink := Color(0.12, 0.14, 0.22)
 	var card_top := card.position.y
+	var hand := load("res://assets/fonts/Caveat.ttf") as Font
 
-	var title := _ctext("The Notebook", 76, ink, vp.x)
-	title.position = Vector2(0, card_top + 58.0)
+	# "The Notebook" in a handwritten font, centred in the card.
+	var title := _ctext("The Notebook", 120, ink, vp.x)
+	if hand:
+		title.add_theme_font_override("font", hand)
+	title.position = Vector2(0, card_top + 70.0)
 	add_child(title)
 
-	var sub := _ctext("you are a doodle.  you just woke up.", 24, Color(0.32, 0.34, 0.42), vp.x)
-	sub.position = Vector2(0, card_top + 198.0)
-	add_child(sub)
-
-	var how := _ctext("move: WASD / arrows / drag      dodge the ink, survive, escape", 18, Color(0.42, 0.44, 0.5), vp.x)
-	how.position = Vector2(0, card_top + 244.0)
-	add_child(how)
-
-	var prompt := _ctext("press any key to awaken", 26, Color(0.16, 0.45, 0.5), vp.x)
-	prompt.position = Vector2(0, card_top + ch + 36.0)
+	var prompt := _ctext("press any key to continue", 30, Color(0.16, 0.45, 0.5), vp.x)
+	if hand:
+		prompt.add_theme_font_override("font", hand)
+	prompt.position = Vector2(0, card_top + ch + 40.0)
 	add_child(prompt)
 	var pt := create_tween().set_loops()
 	pt.tween_property(prompt, "modulate:a", 0.4, 0.7).set_trans(Tween.TRANS_SINE)
 	pt.tween_property(prompt, "modulate:a", 1.0, 0.7).set_trans(Tween.TRANS_SINE)
 
-	# Shiara's own doodle, waking up beside the title.
+	# Shiara's own doodle, waking up below everything (clear of the card frame).
 	var doodle := Sprite2D.new()
 	doodle.texture = load("res://assets/sprites/doodle_run/run_0.png")
-	doodle.position = Vector2(vp.x * 0.5, card_top + ch - 4.0)
+	doodle.position = Vector2(vp.x * 0.5, card_top + ch + 130.0)
 	doodle.scale = Vector2.ZERO
 	add_child(doodle)
 	var dt := create_tween()
 	dt.tween_interval(0.2)
-	dt.tween_property(doodle, "scale", Vector2(0.4, 0.4), 0.55).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	dt.tween_property(doodle, "scale", Vector2(0.42, 0.42), 0.55).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 	# Fade in from black.
 	var fade := ColorRect.new()

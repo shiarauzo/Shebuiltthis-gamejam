@@ -31,6 +31,12 @@ Art / Visuals
     reproduce the SVGs exactly.
   - NO generative-AI art was used (per jam rules).
 
+Fonts
+  - "Caveat" handwriting font by The Caveat Project Authors, via Google
+    Fonts (https://github.com/google/fonts/tree/main/ofl/caveat).
+    Licensed under the SIL Open Font License 1.1 (see
+    assets/fonts/Caveat-OFL.txt). Used for the title and in-game text.
+
 Audio
   - (To be added.) Any music or sound effects will come from
     free / Creative Commons libraries and will be credited here with
