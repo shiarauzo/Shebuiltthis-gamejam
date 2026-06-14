@@ -74,6 +74,32 @@ agent-browser screenshot "$SHOTS/02-gameplay.png" >/dev/null 2>&1
 [ "$ended" = "true" ] && ok "game ended" || no "game never ended within timeout"
 [ "$won" = "false" ] && ok "stationary player loses to the eraser" || no "expected a loss (won=$won)"
 
+echo "[e2e] --- scenario 2: win by reaching the edge ---"
+agent-browser open "$URL" >/dev/null 2>&1
+for i in $(seq 1 40); do
+  r=$(agent-browser eval "(document.getElementById('status')?0:1)" 2>/dev/null | grep -oE '[01]' | tail -1)
+  [ "${r:-0}" = "1" ] && break; sleep 0.5
+done
+agent-browser eval "window.__AWAKE_FAST=1" >/dev/null 2>&1
+agent-browser click "#canvas" >/dev/null 2>&1
+# Hold a touch (mouse-emulated) at the right edge so the doodle runs there and
+# waits for the escape to open. Track the furthest phase from the same poll.
+agent-browser mouse move 1245 360 >/dev/null 2>&1
+agent-browser mouse down >/dev/null 2>&1
+max2=0; won2=""
+for i in $(seq 1 45); do
+  agent-browser mouse move 1245 360 >/dev/null 2>&1  # keep the drag target pinned at the edge
+  p=$(num phase); p=${p:-0}
+  [ "$p" -gt "$max2" ] 2>/dev/null && max2=$p
+  if [ "$(bool ended)" = "true" ]; then won2=$(bool won); break; fi
+  sleep 0.3
+done
+agent-browser mouse up >/dev/null 2>&1
+agent-browser screenshot "$SHOTS/03-win.png" >/dev/null 2>&1
+echo "[e2e] scenario 2: max_phase=$max2 ended won=${won2:-?}"
+[ "$max2" -ge 3 ] 2>/dev/null && ok "escape opened (scenario 2)" || no "escape never opened (scenario 2)"
+[ "$won2" = "true" ] && ok "player reaches the edge and wins" || no "win path failed (won=${won2:-?})"
+
 # No page errors.
 errs=$(agent-browser errors 2>/dev/null | grep -iE "error|exception|uncaught" | grep -viE "no errors|0 error" | head -5)
 [ -z "$errs" ] && ok "no page errors" || no "page errors: $errs"

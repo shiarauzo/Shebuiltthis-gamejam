@@ -140,7 +140,7 @@ func _process(delta: float) -> void:
 	_report_t += delta
 	if _report_t >= 0.4:
 		_report_t = 0.0
-		Game.web_report({"phase": phase, "ended": ended, "won": Game.won, "t": survival_time, "health": player.health})
+		Game.web_report({"phase": phase, "ended": ended, "won": Game.won, "t": survival_time, "health": player.health, "x": int(player.global_position.x)})
 
 	match phase:
 		1:
