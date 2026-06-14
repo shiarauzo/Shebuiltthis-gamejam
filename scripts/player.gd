@@ -15,6 +15,7 @@ var health := MAX_HEALTH
 var invincible := false
 var _iframe_t := 0.0
 var _blink_t := 0.0
+var speed_mult := 1.0  # boosted in e2e fast mode so pages traverse quickly
 var _focused := true
 var _touching := false
 var _touch_target := Vector2.ZERO
@@ -69,7 +70,7 @@ func _physics_process(delta: float) -> void:
 		if to.length() > 8.0:  # deadzone so a tap near the figure doesn't jitter
 			dir += to.normalized()
 
-	velocity = dir.normalized() * SPEED
+	velocity = dir.normalized() * SPEED * speed_mult
 	move_and_slide()
 
 	# Clamp to the notebook page.

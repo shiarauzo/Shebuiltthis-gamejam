@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # End-to-end browser test for Notebook Awakening using agent-browser (real Chrome).
-# Exports the web build, serves it, plays it, and asserts the full game loop via
-# the window.__AWAKE state bridge + console-error checks.
+# Exports the web build, serves it, plays it, and asserts the full new flow
+# (intro -> play -> 5 page flips -> win, plus the lose path) via the
+# window.__AWAKE state bridge + console-error checks.
 #
-# Usage: bash tests/e2e/e2e.sh
-# Exit 0 = all e2e checks passed, 1 = failure.
+# Usage: bash tests/e2e/e2e.sh   (exit 0 = pass)
 
 set -uo pipefail
 cd "$(dirname "$0")/../.."
@@ -19,7 +19,7 @@ PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  PASS: $1"; }
 no()  { FAIL=$((FAIL+1)); echo "  FAIL: $1"; }
 
-cleanup() { agent-browser close >/dev/null 2>&1; [ -n "${SRV:-}" ] && kill "$SRV" >/dev/null 2>&1; }
+cleanup() { agent-browser close --all >/dev/null 2>&1; [ -n "${SRV:-}" ] && kill "$SRV" >/dev/null 2>&1; }
 trap cleanup EXIT
 
 echo "[e2e] export web build"
@@ -30,77 +30,65 @@ python3 -m http.server "$PORT" --directory build/web >/tmp/e2e_httpd.log 2>&1 &
 SRV=$!
 sleep 1
 
-# Read fields individually — agent-browser prints raw numbers/booleans cleanly,
-# whereas JSON.stringify comes back as an escaped string that's painful to parse.
-num()  { agent-browser eval "(window.__AWAKE||{}).$1 ?? 0" 2>/dev/null | grep -oE '[0-9]+' | tail -1; }
-bool() { agent-browser eval "(window.__AWAKE||{}).$1 === true" 2>/dev/null | grep -oE 'true|false' | tail -1; }
+num()    { agent-browser eval "(window.__AWAKE||{}).$1 ?? 0" 2>/dev/null | grep -oE '[0-9]+' | tail -1; }
+bool()   { agent-browser eval "(window.__AWAKE||{}).$1 === true" 2>/dev/null | grep -oE 'true|false' | tail -1; }
+sstate() { agent-browser eval "(window.__AWAKE||{}).state || 'none'" 2>/dev/null | grep -oE 'intro|play|flip|ending|done|none' | tail -1; }
 
+start_game() {
+  agent-browser open "$URL" >/dev/null 2>&1
+  for i in $(seq 1 60); do
+    r=$(agent-browser eval "(document.getElementById('status')?0:1)" 2>/dev/null | grep -oE '[01]' | tail -1)
+    cw=$(agent-browser eval "(document.getElementById('canvas')||{}).width||0" 2>/dev/null | grep -oE '[0-9]+' | tail -1)
+    [ "${r:-0}" = "1" ] && [ "${cw:-0}" -gt 0 ] && break
+    sleep 0.5
+  done
+  agent-browser eval "window.__AWAKE_FAST=1" >/dev/null 2>&1
+  agent-browser click "#canvas" >/dev/null 2>&1   # start from the title
+}
+
+# ---- scenario 1: intro -> play -> 5 pages -> win -------------------------
 echo "[e2e] open $URL"
-agent-browser open "$URL" >/dev/null 2>&1
+start_game
+[ -n "$(sstate)" ] && ok "engine started" || no "engine did not start"
+agent-browser screenshot "$SHOTS/01-start.png" >/dev/null 2>&1
 
-# Wait for the Godot engine to start (loading overlay #status is removed).
-started=0
-for i in $(seq 1 60); do
-  r=$(agent-browser eval "(document.getElementById('status')?0:1)" 2>/dev/null | grep -oE '[01]' | tail -1)
-  cw=$(agent-browser eval "(document.getElementById('canvas')||{}).width||0" 2>/dev/null | grep -oE '[0-9]+' | tail -1)
-  if [ "${r:-0}" = "1" ] && [ "${cw:-0}" -gt 0 ]; then started=1; break; fi
-  sleep 0.5
-done
-[ "$started" = "1" ] && ok "engine started (canvas ${cw}px)" || no "engine did not start"
+# Wait for the intro to hand off to play.
+played=0
+for i in $(seq 1 30); do [ "$(sstate)" = "play" ] && { played=1; break; }; sleep 0.5; done
+[ "$played" = "1" ] && ok "intro hands off to play" || no "never reached play (state=$(sstate))"
+agent-browser screenshot "$SHOTS/02-play.png" >/dev/null 2>&1
 
-agent-browser screenshot "$SHOTS/01-title.png" >/dev/null 2>&1
-
-# Enable fast mode BEFORE starting, then click the canvas to begin from the title.
-agent-browser eval "window.__AWAKE_FAST=1" >/dev/null 2>&1
-agent-browser click "#canvas" >/dev/null 2>&1
-sleep 0.5
-
-# Poll the state bridge for ~24s, tracking the furthest phase + end state.
-max_phase=0; saw_started=0; ended="false"; won=""
-for i in $(seq 1 48); do
-  p=$(num phase); p=${p:-0}
-  [ "$p" -ge 1 ] 2>/dev/null && saw_started=1
-  [ "$p" -gt "$max_phase" ] 2>/dev/null && max_phase=$p
-  if [ "$(bool ended)" = "true" ]; then ended="true"; won=$(bool won); break; fi
-  sleep 0.5
-done
-echo "[e2e] result: max_phase=$max_phase ended=$ended won=${won:-?}"
-
-agent-browser screenshot "$SHOTS/02-gameplay.png" >/dev/null 2>&1
-
-[ "$saw_started" = "1" ] && ok "game started (phase >= 1)" || no "game never started"
-[ "$max_phase" -ge 2 ] 2>/dev/null && ok "reached phase 2 (eraser)" || no "never reached phase 2"
-[ "$max_phase" -ge 3 ] 2>/dev/null && ok "reached phase 3 (escape opened)" || no "never reached phase 3"
-[ "$ended" = "true" ] && ok "game ended" || no "game never ended within timeout"
-[ "$won" = "false" ] && ok "stationary player loses to the eraser" || no "expected a loss (won=$won)"
-
-echo "[e2e] --- scenario 2: win by reaching the edge ---"
-agent-browser open "$URL" >/dev/null 2>&1
-for i in $(seq 1 40); do
-  r=$(agent-browser eval "(document.getElementById('status')?0:1)" 2>/dev/null | grep -oE '[01]' | tail -1)
-  [ "${r:-0}" = "1" ] && break; sleep 0.5
-done
-agent-browser eval "window.__AWAKE_FAST=1" >/dev/null 2>&1
-agent-browser click "#canvas" >/dev/null 2>&1
-# Hold a touch (mouse-emulated) at the right edge so the doodle runs there and
-# waits for the escape to open. Track the furthest phase from the same poll.
+# Hold a touch (mouse-emulated) at the right edge: the doodle runs there and
+# auto-advances page after page.
 agent-browser mouse move 1245 360 >/dev/null 2>&1
 agent-browser mouse down >/dev/null 2>&1
-max2=0; won2=""
-for i in $(seq 1 45); do
-  agent-browser mouse move 1245 360 >/dev/null 2>&1  # keep the drag target pinned at the edge
-  p=$(num phase); p=${p:-0}
-  [ "$p" -gt "$max2" ] 2>/dev/null && max2=$p
-  if [ "$(bool ended)" = "true" ]; then won2=$(bool won); break; fi
+max_page=1; won=""
+for i in $(seq 1 120); do
+  agent-browser mouse move 1245 360 >/dev/null 2>&1
+  p=$(num page); p=${p:-1}
+  [ "$p" -gt "$max_page" ] 2>/dev/null && max_page=$p
+  if [ "$(bool ended)" = "true" ]; then won=$(bool won); break; fi
   sleep 0.3
 done
 agent-browser mouse up >/dev/null 2>&1
 agent-browser screenshot "$SHOTS/03-win.png" >/dev/null 2>&1
-echo "[e2e] scenario 2: max_phase=$max2 ended won=${won2:-?}"
-[ "$max2" -ge 3 ] 2>/dev/null && ok "escape opened (scenario 2)" || no "escape never opened (scenario 2)"
-[ "$won2" = "true" ] && ok "player reaches the edge and wins" || no "win path failed (won=${won2:-?})"
+echo "[e2e] scenario 1: max_page=$max_page ended won=${won:-?}"
+[ "$max_page" -ge 5 ] 2>/dev/null && ok "advanced through all 5 pages" || no "did not reach page 5 (max=$max_page)"
+[ "$won" = "true" ] && ok "runs out of the notebook and wins" || no "win failed (won=${won:-?})"
 
-# No page errors.
+# ---- scenario 2: stand still -> eraser catches -> lose -------------------
+echo "[e2e] --- scenario 2: lose by standing still ---"
+start_game
+for i in $(seq 1 30); do [ "$(sstate)" = "play" ] && break; sleep 0.5; done
+won2=""
+for i in $(seq 1 40); do
+  if [ "$(bool ended)" = "true" ]; then won2=$(bool won); break; fi
+  sleep 0.5
+done
+echo "[e2e] scenario 2: ended won=${won2:-?}"
+[ "$won2" = "false" ] && ok "standing still loses (eraser/ink)" || no "expected a loss (won=${won2:-?})"
+
+# ---- page errors --------------------------------------------------------
 errs=$(agent-browser errors 2>/dev/null | grep -iE "error|exception|uncaught" | grep -viE "no errors|0 error" | head -5)
 [ -z "$errs" ] && ok "no page errors" || no "page errors: $errs"
 

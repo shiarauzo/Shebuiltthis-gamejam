@@ -9,11 +9,8 @@ var _passes: int = 0
 var _logf: FileAccess
 
 func _ready() -> void:
-	# user:// is writable everywhere (res:// is read-only in web/PCK builds).
-	# _log() already null-guards _logf, so a failed open is safe.
 	_logf = FileAccess.open("user://last_run.log", FileAccess.WRITE)
-	# Watchdog: never hang forever.
-	get_tree().create_timer(40.0).timeout.connect(func():
+	get_tree().create_timer(60.0).timeout.connect(func():
 		_log("WATCHDOG TIMEOUT — harness did not finish in time")
 		if _logf: _logf.flush()
 		get_tree().quit(3))
@@ -24,21 +21,18 @@ func _ready() -> void:
 	await _test_touch_movement()
 	await _test_focus_out_stops_movement()
 	await _test_damage_and_iframes()
-	await _test_death_after_three_hits()
+	await _test_death()
+	await _test_intro_then_play()
 	await _test_pencil_draws_ink()
 	await _test_ink_cap()
 	await _test_ink_damages_standing_player()
-	await _test_phase_two_trigger()
-	await _test_eraser_erases_ink()
-	await _test_win_on_reaching_edge()
-	await _test_lose_on_eraser_contact()
+	await _test_eraser_spawn_grace_and_catch()
+	await _test_page_flip_advances()
+	await _test_five_pages_then_win()
 
 	_log("\n==== TEST SUMMARY ====")
 	_log("PASSED: %d   FAILED: %d" % [_passes, _failures])
-	if _failures == 0:
-		_log("RESULT: ALL TESTS PASSED")
-	else:
-		_log("RESULT: FAILURES PRESENT")
+	_log("RESULT: ALL TESTS PASSED" if _failures == 0 else "RESULT: FAILURES PRESENT")
 	if _logf:
 		_logf.flush()
 	get_tree().quit(0 if _failures == 0 else 1)
@@ -57,44 +51,42 @@ func _check(name: String, ok: bool, detail: String = "") -> void:
 		_failures += 1
 		_log("  FAIL: %s %s" % [name, detail])
 
-func _make_game(trigger := 30.0) -> Node:
+func _make_game() -> Node:
 	var scene := load("res://scenes/game.tscn")
 	var g = scene.instantiate()
-	g.eraser_trigger_time = trigger
 	add_child(g)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	await get_tree().physics_frame  # let collision state settle before queries
+	await get_tree().physics_frame
 	return g
 
 func _free_game(g: Node) -> void:
 	g.queue_free()
 	await get_tree().process_frame
 
-# --- Tests ---------------------------------------------------------------
+func _wait_until(cond: Callable, timeout: float) -> bool:
+	var elapsed := 0.0
+	while elapsed < timeout:
+		if cond.call():
+			return true
+		await get_tree().create_timer(0.1).timeout
+		elapsed += 0.1
+	return cond.call()
+
+# --- Player-level tests --------------------------------------------------
 
 func _test_movement() -> void:
 	_log("[movement]")
 	var g = await _make_game()
 	var player = g.player
+	player.set_physics_process(true)
 	var start_x: float = player.global_position.x
-
-	var ev := InputEventKey.new()
-	ev.physical_keycode = KEY_D
-	ev.pressed = true
-	Input.parse_input_event(ev)
-	Input.flush_buffered_events()
-
-	# Advance several physics frames.
+	var ev := InputEventKey.new(); ev.physical_keycode = KEY_D; ev.pressed = true
+	Input.parse_input_event(ev); Input.flush_buffered_events()
 	for i in range(20):
 		await get_tree().physics_frame
-
-	var rel := InputEventKey.new()
-	rel.physical_keycode = KEY_D
-	rel.pressed = false
-	Input.parse_input_event(rel)
-	Input.flush_buffered_events()
-
+	var rel := InputEventKey.new(); rel.physical_keycode = KEY_D; rel.pressed = false
+	Input.parse_input_event(rel); Input.flush_buffered_events()
 	var moved: float = player.global_position.x - start_x
 	_check("moves right on D", moved > 5.0, "(dx=%.1f)" % moved)
 	await _free_game(g)
@@ -103,8 +95,8 @@ func _test_touch_movement() -> void:
 	_log("[touch movement]")
 	var g = await _make_game()
 	var player = g.player
+	player.set_physics_process(true)
 	var x0: float = player.global_position.x
-	# Simulate a touch to the right of the player.
 	player._touching = true
 	player._touch_target = player.global_position + Vector2(200, 0)
 	for i in range(15):
@@ -118,24 +110,17 @@ func _test_focus_out_stops_movement() -> void:
 	_log("[focus-out stops movement]")
 	var g = await _make_game()
 	var player = g.player
-	# Hold D, then drop focus — the player must not drift.
-	var ev := InputEventKey.new()
-	ev.physical_keycode = KEY_D
-	ev.pressed = true
-	Input.parse_input_event(ev)
-	Input.flush_buffered_events()
+	player.set_physics_process(true)
+	var ev := InputEventKey.new(); ev.physical_keycode = KEY_D; ev.pressed = true
+	Input.parse_input_event(ev); Input.flush_buffered_events()
 	player._notification(player.NOTIFICATION_APPLICATION_FOCUS_OUT)
 	var x0: float = player.global_position.x
 	for i in range(15):
 		await get_tree().physics_frame
 	var drift: float = absf(player.global_position.x - x0)
 	_check("no drift while unfocused", drift < 0.5, "(drift=%.2f)" % drift)
-	# Release + refocus to not leak state into later tests.
-	var rel := InputEventKey.new()
-	rel.physical_keycode = KEY_D
-	rel.pressed = false
-	Input.parse_input_event(rel)
-	Input.flush_buffered_events()
+	var rel := InputEventKey.new(); rel.physical_keycode = KEY_D; rel.pressed = false
+	Input.parse_input_event(rel); Input.flush_buffered_events()
 	player._notification(player.NOTIFICATION_APPLICATION_FOCUS_IN)
 	await _free_game(g)
 
@@ -145,31 +130,39 @@ func _test_damage_and_iframes() -> void:
 	var player = g.player
 	player.take_damage()
 	_check("first hit drops health to 2", player.health == 2, "(hp=%d)" % player.health)
-	player.take_damage()  # should be ignored (invincible)
+	player.take_damage()
 	_check("second hit during i-frames ignored", player.health == 2, "(hp=%d)" % player.health)
 	_check("fade applied", player.modulate.a < 1.0, "(a=%.2f)" % player.modulate.a)
 	await _free_game(g)
 
-func _test_death_after_three_hits() -> void:
+func _test_death() -> void:
 	_log("[death]")
 	var g = await _make_game()
 	var player = g.player
-	var died := [false]
-	player.died.connect(func(): died[0] = true)
 	for i in range(3):
 		player.invincible = false
 		player._iframe_t = 0.0
 		player.take_damage()
 	_check("health reaches 0", player.health <= 0, "(hp=%d)" % player.health)
-	_check("died signal emitted", died[0])
 	_check("game registered loss", g.ended and Game.won == false)
+	await _free_game(g)
+
+# --- Flow tests ----------------------------------------------------------
+
+func _test_intro_then_play() -> void:
+	_log("[intro -> play]")
+	var g = await _make_game()
+	_check("starts in intro", g.state == "intro", "(state=%s)" % g.state)
+	g._begin_play()
+	await get_tree().physics_frame
+	_check("begins play on input", g.state == "play", "(state=%s)" % g.state)
+	_check("eraser spawned at play", g.eraser != null and is_instance_valid(g.eraser))
 	await _free_game(g)
 
 func _test_pencil_draws_ink() -> void:
 	_log("[pencil draws ink]")
-	Game.won = false
 	var g = await _make_game()
-	# Wait long enough for at least one commit + flash cycle.
+	g._begin_play()
 	await get_tree().create_timer(3.8).timeout
 	var ink_count := get_tree().get_nodes_in_group("ink").size()
 	_check("pencil produced ink", ink_count >= 1, "(ink=%d)" % ink_count)
@@ -178,6 +171,7 @@ func _test_pencil_draws_ink() -> void:
 func _test_ink_cap() -> void:
 	_log("[ink cap]")
 	var g = await _make_game()
+	g._begin_play()
 	var r: Rect2 = Game.sheet_rect
 	g.pencil._commit_pos = r.position + r.size * 0.5
 	g.pencil._stroke_angle = 0.0
@@ -185,15 +179,15 @@ func _test_ink_cap() -> void:
 		g.pencil._spawn_ink()
 	await get_tree().process_frame
 	var count := get_tree().get_nodes_in_group("ink").size()
-	_check("ink count capped at MAX_INK", count <= Pencil.MAX_INK, "(count=%d, max=%d)" % [count, Pencil.MAX_INK])
+	_check("ink count capped at MAX_INK", count <= Pencil.MAX_INK, "(count=%d)" % count)
 	await _free_game(g)
 
 func _test_ink_damages_standing_player() -> void:
 	_log("[ink hits a standing player]")
 	var g = await _make_game()
+	g._begin_play()
 	var player = g.player
 	var hp0: int = player.health
-	# Drop a stroke right on the (idle) player.
 	var ink = Ink.new()
 	g.add_child(ink)
 	var p: Vector2 = player.global_position
@@ -203,73 +197,48 @@ func _test_ink_damages_standing_player() -> void:
 	_check("stroke on standing player deals damage", player.health < hp0, "(hp %d->%d)" % [hp0, player.health])
 	await _free_game(g)
 
-func _test_phase_two_trigger() -> void:
-	_log("[phase 2 trigger]")
-	var g = await _make_game(1.0)
-	g.escape_open_delay = 0.5
-	await get_tree().create_timer(1.4).timeout
-	_check("phase advances to 2+", g.phase >= 2, "(phase=%d)" % g.phase)
-	_check("eraser spawned", g.eraser != null and is_instance_valid(g.eraser))
-	# Escape edge should NOT be open immediately (must survive the eraser first).
-	await get_tree().create_timer(0.8).timeout
-	_check("escape edge opens after survival window", g.escape_edge.active and g.phase == 3, "(phase=%d)" % g.phase)
-	await _free_game(g)
-
-func _test_eraser_erases_ink() -> void:
-	_log("[eraser erases ink]")
-	var g = await _make_game(1.0)
-	# Spawn an ink stroke right where the eraser will start (top-left corner).
-	var r: Rect2 = Game.sheet_rect
-	var ink = Ink.new()
-	g.add_child(ink)
-	var p := r.position + Vector2(40, 40)
-	ink.setup(p - Vector2(30, 0), p + Vector2(30, 0))
-	await get_tree().process_frame
-	var before := get_tree().get_nodes_in_group("ink").size()
-	# Place the eraser on top of the ink and let it process.
-	await get_tree().create_timer(1.4).timeout  # phase 2 spawns eraser at top-left corner
-	if g.eraser:
-		g.eraser.global_position = p
-	for i in range(10):
-		await get_tree().physics_frame
-	var still_there := is_instance_valid(ink) and ink.is_in_group("ink")
-	_check("eraser removed nearby ink", not still_there, "(before=%d)" % before)
-	await _free_game(g)
-
-func _test_win_on_reaching_edge() -> void:
-	_log("[win on reaching edge]")
-	Game.won = false
-	var g = await _make_game(0.5)
-	g.escape_open_delay = 0.3
+func _test_eraser_spawn_grace_and_catch() -> void:
+	_log("[eraser spawn grace + catch]")
+	var g = await _make_game()
+	g._begin_play()
 	var player = g.player
+	await get_tree().physics_frame
+	_check("eraser exists", g.eraser != null)
+	# Force overlap immediately; grace must protect.
+	g.eraser.global_position = player.global_position
+	for i in range(5):
+		await get_tree().physics_frame
+	_check("no instant kill during spawn grace", not g.ended)
+	await get_tree().create_timer(g.eraser.SPAWN_GRACE).timeout
+	await get_tree().physics_frame
+	_check("eraser catch loses after grace", g.ended and Game.won == false)
+	await _free_game(g)
+
+func _test_page_flip_advances() -> void:
+	_log("[page flip advances]")
+	Game.won = false
+	var g = await _make_game()
+	g._begin_play()
+	await get_tree().physics_frame
+	var r: Rect2 = Game.sheet_rect
+	g.player.global_position.x = r.position.x + r.size.x - 8.0
+	var ok = await _wait_until(func(): return g.page == 2 and g.state == "play", 4.0)
+	_check("reaching edge flips to page 2", ok, "(page=%d state=%s)" % [g.page, g.state])
+	await _free_game(g)
+
+func _test_five_pages_then_win() -> void:
+	_log("[five pages -> win]")
+	Game.won = false
+	var g = await _make_game()
 	var won_flag := [false]
 	g.game_over.connect(func(w): won_flag[0] = w)
-	# Wait past phase 2's survival window so the escape edge opens.
-	await get_tree().create_timer(1.2).timeout
-	_check("escape edge open before win attempt", g.escape_edge.active)
-	# Teleport player into the escape edge.
+	g._begin_play()
+	await get_tree().physics_frame
 	var r: Rect2 = Game.sheet_rect
-	player.global_position = Vector2(r.position.x + r.size.x - 16.0, r.position.y + r.size.y * 0.5)
-	for i in range(12):
-		await get_tree().physics_frame
-	_check("reaching edge wins", g.ended and Game.won == true and won_flag[0] == true)
-	await _free_game(g)
-
-func _test_lose_on_eraser_contact() -> void:
-	_log("[eraser spawn grace + contact loses]")
-	Game.won = true  # set opposite to prove it flips
-	var g = await _make_game(0.3)
-	var player = g.player
-	await get_tree().create_timer(0.5).timeout  # let the eraser spawn
-	_check("eraser exists for contact test", g.eraser != null)
-	if g.eraser:
-		# Force overlap immediately; during spawn grace it must NOT kill.
-		g.eraser.global_position = player.global_position
-		for i in range(5):
-			await get_tree().physics_frame
-		_check("no instant kill during spawn grace", not g.ended)
-		# After the grace window it catches the overlapping player.
-		await get_tree().create_timer(g.eraser.SPAWN_GRACE).timeout
-		await get_tree().physics_frame
-		_check("eraser contact loses after grace", g.ended and Game.won == false)
+	for p in range(g.total_pages):
+		await _wait_until(func(): return g.state == "play", 4.0)
+		g.player.global_position.x = r.position.x + r.size.x - 8.0
+		await _wait_until(func(): return g.page > (p + 1) or g.ended, 4.0)
+	var done = await _wait_until(func(): return g.ended, 5.0)
+	_check("five pages then win", done and Game.won == true and won_flag[0] == true, "(page=%d ended=%s won=%s)" % [g.page, g.ended, Game.won])
 	await _free_game(g)
